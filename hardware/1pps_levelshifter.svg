@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300">
+  <!-- Background -->
+  <rect width="500" height="300" fill="#ffffff"/>
+  
+  <!-- Title -->
+  <text x="250" y="28" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#1a1a2e">1PPS Level Shifter (5V → 3.3V)</text>
+  
+  <!-- Input -->
+  <text x="30" y="115" font-family="Arial" font-size="11" fill="#333" font-weight="bold">1PPS</text>
+  <text x="30" y="130" font-family="Arial" font-size="10" fill="#666">from FE-5680A</text>
+  <text x="30" y="145" font-family="Arial" font-size="10" fill="#666">(0-5V TTL)</text>
+  
+  <!-- Input line -->
+  <line x1="90" y1="120" x2="120" y2="120" stroke="#333" stroke-width="2"/>
+  
+  <!-- R4 - Upper resistor of divider -->
+  <rect x="120" y="110" width="50" height="20" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="145" y="105" text-anchor="middle" font-family="Arial" font-size="11" fill="#333">R4</text>
+  <text x="145" y="145" text-anchor="middle" font-family="Arial" font-size="10" fill="#666">2.2kΩ</text>
+  
+  <!-- Line after R4 -->
+  <line x1="170" y1="120" x2="220" y2="120" stroke="#333" stroke-width="2"/>
+  
+  <!-- Junction point -->
+  <circle cx="220" cy="120" r="3" fill="#333"/>
+  
+  <!-- D1 - Schottky diode (protection) -->
+  <line x1="220" y1="120" x2="260" y2="120" stroke="#333" stroke-width="2"/>
+  <!-- Diode symbol -->
+  <polygon points="260,110 260,130 280,120" fill="none" stroke="#333" stroke-width="2"/>
+  <line x1="280" y1="110" x2="280" y2="130" stroke="#333" stroke-width="2"/>
+  <text x="270" y="100" text-anchor="middle" font-family="Arial" font-size="11" fill="#333">D1</text>
+  <text x="270" y="150" text-anchor="middle" font-family="Arial" font-size="10" fill="#666">BAT54</text>
+  
+  <!-- Line to output -->
+  <line x1="280" y1="120" x2="330" y2="120" stroke="#333" stroke-width="2"/>
+  
+  <!-- Junction for diode cathode to ground -->
+  <circle cx="330" cy="120" r="3" fill="#333"/>
+  <line x1="330" y1="120" x2="330" y2="160" stroke="#333" stroke-width="2"/>
+  
+  <!-- Ground for diode -->
+  <line x1="320" y1="160" x2="340" y2="160" stroke="#333" stroke-width="2"/>
+  <line x1="324" y1="166" x2="336" y2="166" stroke="#333" stroke-width="2"/>
+  <line x1="328" y1="172" x2="332" y2="172" stroke="#333" stroke-width="2"/>
+  
+  <!-- Output line -->
+  <line x1="330" y1="120" x2="420" y2="120" stroke="#333" stroke-width="2"/>
+  
+  <!-- Output label -->
+  <circle cx="420" cy="120" r="5" fill="#4ade80" stroke="#333" stroke-width="1.5"/>
+  <text x="435" y="115" font-family="Arial" font-size="11" fill="#333" font-weight="bold">1PPS</text>
+  <text x="435" y="130" font-family="Arial" font-size="10" fill="#666">→ Pico GP2</text>
+  
+  <!-- R5 - Lower resistor of divider -->
+  <line x1="220" y1="120" x2="220" y2="150" stroke="#333" stroke-width="2"/>
+  <rect x="210" y="150" width="20" height="50" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="238" y="170" font-family="Arial" font-size="11" fill="#333">R5</text>
+  <text x="238" y="185" font-family="Arial" font-size="10" fill="#666">3.3kΩ</text>
+  <line x1="220" y1="200" x2="220" y2="230" stroke="#333" stroke-width="2"/>
+  
+  <!-- Ground for R5 -->
+  <line x1="210" y1="230" x2="230" y2="230" stroke="#333" stroke-width="2"/>
+  <line x1="214" y1="236" x2="226" y2="236" stroke="#333" stroke-width="2"/>
+  <line x1="218" y1="242" x2="222" y2="242" stroke="#333" stroke-width="2"/>
+  <text x="220" y="258" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">GND</text>
+  
+  <!-- Voltage calculation note -->
+  <rect x="30" y="200" width="140" height="50" fill="#f0f8ff" stroke="#0f3460" stroke-width="1" rx="4"/>
+  <text x="100" y="218" text-anchor="middle" font-family="Arial" font-size="10" fill="#0f3460" font-weight="bold">Voltage Divider:</text>
+  <text x="100" y="232" text-anchor="middle" font-family="Arial" font-size="10" fill="#0f3460">Vout = 5V × 3.3k/(2.2k+3.3k)</text>
+  <text x="100" y="246" text-anchor="middle" font-family="Arial" font-size="10" fill="#0f3460">Vout ≈ 3.0V</text>
+  
+  <!-- Component box -->
+  <rect x="20" y="268" width="460" height="28" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="4"/>
+  <text x="250" y="286" text-anchor="middle" font-family="Arial" font-size="10" fill="#333">
+    <tspan font-weight="bold">Components:</tspan> R4 = 2.2kΩ | R5 = 3.3kΩ | D1 = BAT54 Schottky diode (ESD protection)
+  </text>
+</svg>

@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340">
+  <!-- Background -->
+  <rect width="600" height="340" fill="#ffffff"/>
+  
+  <!-- Title -->
+  <text x="300" y="28" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#1a1a2e">Interval Pulse Outputs</text>
+  
+  <!-- GPIO Labels on left -->
+  <rect x="30" y="55" width="80" height="175" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2" rx="5"/>
+  <text x="70" y="75" text-anchor="middle" font-family="Arial" font-size="10" fill="#2e7d32" font-weight="bold">Pico GPIOs</text>
+  
+  <text x="50" y="100" font-family="Arial" font-size="11" fill="#333" font-weight="bold">GP14</text>
+  <text x="50" y="130" font-family="Arial" font-size="11" fill="#333" font-weight="bold">GP15</text>
+  <text x="50" y="160" font-family="Arial" font-size="11" fill="#333" font-weight="bold">GP16</text>
+  <text x="50" y="190" font-family="Arial" font-size="11" fill="#333" font-weight="bold">GP17</text>
+  <text x="50" y="220" font-family="Arial" font-size="11" fill="#333" font-weight="bold">GP18</text>
+  
+  <!-- Output circles with colors -->
+  <circle cx="95" cy="95" r="5" fill="#ff5722"/>
+  <circle cx="95" cy="125" r="5" fill="#e91e63"/>
+  <circle cx="95" cy="155" r="5" fill="#9c27b0"/>
+  <circle cx="95" cy="185" r="5" fill="#3f51b5"/>
+  <circle cx="95" cy="215" r="5" fill="#009688"/>
+  
+  <!-- Lines to output connectors -->
+  <line x1="100" y1="95" x2="200" y2="95" stroke="#333" stroke-width="2"/>
+  <line x1="100" y1="125" x2="200" y2="125" stroke="#333" stroke-width="2"/>
+  <line x1="100" y1="155" x2="200" y2="155" stroke="#333" stroke-width="2"/>
+  <line x1="100" y1="185" x2="200" y2="185" stroke="#333" stroke-width="2"/>
+  <line x1="100" y1="215" x2="200" y2="215" stroke="#333" stroke-width="2"/>
+  
+  <!-- Output connector box -->
+  <rect x="200" y="55" width="160" height="175" fill="#fff3e0" stroke="#ff9800" stroke-width="2" rx="5"/>
+  <text x="280" y="75" text-anchor="middle" font-family="Arial" font-size="10" fill="#e65100" font-weight="bold">Output Connector</text>
+  
+  <!-- Output labels -->
+  <circle cx="215" cy="95" r="6" fill="#ff5722" stroke="#333" stroke-width="1"/>
+  <text x="235" y="99" font-family="Arial" font-size="11" fill="#333" font-weight="bold">0.5 Second</text>
+  
+  <circle cx="215" cy="125" r="6" fill="#e91e63" stroke="#333" stroke-width="1"/>
+  <text x="235" y="129" font-family="Arial" font-size="11" fill="#333" font-weight="bold">1 Second</text>
+  
+  <circle cx="215" cy="155" r="6" fill="#9c27b0" stroke="#333" stroke-width="1"/>
+  <text x="235" y="159" font-family="Arial" font-size="11" fill="#333" font-weight="bold">6 Second</text>
+  
+  <circle cx="215" cy="185" r="6" fill="#3f51b5" stroke="#333" stroke-width="1"/>
+  <text x="235" y="189" font-family="Arial" font-size="11" fill="#333" font-weight="bold">30 Second</text>
+  
+  <circle cx="215" cy="215" r="6" fill="#009688" stroke="#333" stroke-width="1"/>
+  <text x="235" y="219" font-family="Arial" font-size="11" fill="#333" font-weight="bold">60 Second</text>
+  
+  <!-- Timing diagram section -->
+  <rect x="380" y="55" width="200" height="175" fill="#f5f5f5" stroke="#999" stroke-width="1" rx="5"/>
+  <text x="480" y="75" text-anchor="middle" font-family="Arial" font-size="10" fill="#333" font-weight="bold">Pulse Timing</text>
+  
+  <!-- Timing diagram waveforms -->
+  <!-- 0.5s pulse -->
+  <line x1="395" y1="95" x2="430" y2="95" stroke="#ff5722" stroke-width="2"/>
+  <line x1="430" y1="95" x2="430" y2="85" stroke="#ff5722" stroke-width="2"/>
+  <line x1="430" y1="85" x2="440" y2="85" stroke="#ff5722" stroke-width="2"/>
+  <line x1="440" y1="85" x2="440" y2="95" stroke="#ff5722" stroke-width="2"/>
+  <line x1="440" y1="95" x2="475" y2="95" stroke="#ff5722" stroke-width="2"/>
+  <line x1="475" y1="95" x2="475" y2="85" stroke="#ff5722" stroke-width="2"/>
+  <line x1="475" y1="85" x2="485" y2="85" stroke="#ff5722" stroke-width="2"/>
+  <line x1="485" y1="85" x2="485" y2="95" stroke="#ff5722" stroke-width="2"/>
+  <line x1="485" y1="95" x2="565" y2="95" stroke="#ff5722" stroke-width="2"/>
+  <text x="500" y="93" font-family="Arial" font-size="8" fill="#666">500ms</text>
+  
+  <!-- 1s pulse -->
+  <line x1="395" y1="125" x2="430" y2="125" stroke="#e91e63" stroke-width="2"/>
+  <line x1="430" y1="125" x2="430" y2="115" stroke="#e91e63" stroke-width="2"/>
+  <line x1="430" y1="115" x2="440" y2="115" stroke="#e91e63" stroke-width="2"/>
+  <line x1="440" y1="115" x2="440" y2="125" stroke="#e91e63" stroke-width="2"/>
+  <line x1="440" y1="125" x2="565" y2="125" stroke="#e91e63" stroke-width="2"/>
+  <text x="500" y="123" font-family="Arial" font-size="8" fill="#666">1s</text>
+  
+  <!-- 6s pulse -->
+  <line x1="395" y1="155" x2="430" y2="155" stroke="#9c27b0" stroke-width="2"/>
+  <line x1="430" y1="155" x2="430" y2="145" stroke="#9c27b0" stroke-width="2"/>
+  <line x1="430" y1="145" x2="440" y2="145" stroke="#9c27b0" stroke-width="2"/>
+  <line x1="440" y1="145" x2="440" y2="155" stroke="#9c27b0" stroke-width="2"/>
+  <line x1="440" y1="155" x2="565" y2="155" stroke="#9c27b0" stroke-width="2"/>
+  <text x="500" y="153" font-family="Arial" font-size="8" fill="#666">6s</text>
+  
+  <!-- 30s pulse -->
+  <line x1="395" y1="185" x2="430" y2="185" stroke="#3f51b5" stroke-width="2"/>
+  <line x1="430" y1="185" x2="430" y2="175" stroke="#3f51b5" stroke-width="2"/>
+  <line x1="430" y1="175" x2="440" y2="175" stroke="#3f51b5" stroke-width="2"/>
+  <line x1="440" y1="175" x2="440" y2="185" stroke="#3f51b5" stroke-width="2"/>
+  <line x1="440" y1="185" x2="565" y2="185" stroke="#3f51b5" stroke-width="2"/>
+  <text x="500" y="183" font-family="Arial" font-size="8" fill="#666">30s</text>
+  
+  <!-- 60s pulse -->
+  <line x1="395" y1="215" x2="430" y2="215" stroke="#009688" stroke-width="2"/>
+  <line x1="430" y1="215" x2="430" y2="205" stroke="#009688" stroke-width="2"/>
+  <line x1="430" y1="205" x2="440" y2="205" stroke="#009688" stroke-width="2"/>
+  <line x1="440" y1="205" x2="440" y2="215" stroke="#009688" stroke-width="2"/>
+  <line x1="440" y1="215" x2="565" y2="215" stroke="#009688" stroke-width="2"/>
+  <text x="500" y="213" font-family="Arial" font-size="8" fill="#666">60s</text>
+  
+  <!-- Notes box -->
+  <rect x="30" y="250" width="550" height="80" fill="#e3f2fd" stroke="#1976d2" stroke-width="1" rx="4"/>
+  <text x="305" y="270" text-anchor="middle" font-family="Arial" font-size="11" fill="#1565c0" font-weight="bold">Signal Specifications</text>
+  <text x="45" y="290" font-family="Arial" font-size="10" fill="#333">• Output Level: 3.3V LVCMOS (active high)</text>
+  <text x="45" y="305" font-family="Arial" font-size="10" fill="#333">• Pulse Width: 10ms</text>
+  <text x="300" y="290" font-family="Arial" font-size="10" fill="#333">• Synchronized to rubidium 1PPS reference</text>
+  <text x="300" y="305" font-family="Arial" font-size="10" fill="#333">• Drive capability: 12mA per pin (use buffer for higher loads)</text>
+  <text x="45" y="320" font-family="Arial" font-size="10" fill="#333">• All intervals are exact multiples of 1 second, phase-locked to atomic reference</text>
+</svg>

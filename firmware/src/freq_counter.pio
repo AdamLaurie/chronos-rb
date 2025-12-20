@@ -1,0 +1,51 @@
+; CHRONOS-Rb Frequency Counter PIO Program
+; 
+; Counts cycles of the 10MHz reference signal from the rubidium oscillator.
+; Uses reciprocal counting - count input cycles during a precise gate time.
+;
+; The gate time is controlled by the CPU via the TX FIFO.
+
+.program freq_counter
+
+; Entry point - wait for gate time value from CPU
+.wrap_target
+    pull block              ; Get gate time (in cycles) from FIFO
+    mov x, osr              ; Store in X
+    mov y, null             ; Clear count
+
+count_loop:
+    wait 0 pin 0            ; Wait for low
+    wait 1 pin 0 [1]        ; Wait for rising edge (with 1 cycle delay)
+    jmp y-- count_continue  ; Increment count (Y counts down from 0xFFFFFFFF)
+count_continue:
+    jmp x-- count_loop      ; Decrement gate timer
+
+    ; Gate time expired, report count
+    mov isr, ~y             ; Invert Y to get actual count (was counting down)
+    push                    ; Send count to CPU
+.wrap
+
+% c-sdk {
+#include "hardware/clocks.h"
+#include "hardware/gpio.h"
+
+static inline void freq_counter_program_init(PIO pio, uint sm, uint offset, uint pin) {
+    pio_sm_config c = freq_counter_program_get_default_config(offset);
+    
+    // Configure input pin
+    sm_config_set_in_pins(&c, pin);
+    
+    // Initialize pin
+    pio_gpio_init(pio, pin);
+    gpio_set_dir(pin, GPIO_IN);
+    
+    // Run at system clock
+    sm_config_set_clkdiv(&c, 1.0);
+    
+    // Configure shift registers
+    sm_config_set_in_shift(&c, false, false, 32);
+    
+    // Load configuration
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}

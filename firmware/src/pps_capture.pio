@@ -1,0 +1,58 @@
+; CHRONOS-Rb PPS Capture PIO Program
+; 
+; Captures the rising edge of the 1PPS signal with cycle-accurate timing.
+; Uses the PIO's ability to read the system timer for precise timestamps.
+;
+; The PIO runs at system clock (150MHz) giving ~6.67ns resolution.
+
+.program pps_capture
+
+; Wait for rising edge of PPS signal
+.wrap_target
+wait_low:
+    wait 0 pin 0        ; Wait for low level first
+wait_high:
+    wait 1 pin 0        ; Wait for rising edge
+    irq set 0           ; Signal IRQ to CPU
+    set pins, 1         ; Optional: mirror PPS to debug output
+    
+    ; Wait for pulse to end (debounce)
+    mov x, ~null        ; Set X to maximum
+pulse_wait:
+    jmp pin pulse_done  ; If pin still high, continue waiting
+    jmp done            ; Pin went low, we're done
+pulse_done:
+    jmp x-- pulse_wait  ; Decrement and loop
+done:
+    set pins, 0         ; Clear debug output
+.wrap
+
+% c-sdk {
+#include "hardware/clocks.h"
+#include "hardware/gpio.h"
+
+static inline void pps_capture_program_init(PIO pio, uint sm, uint offset, 
+                                            uint pin_pps, uint pin_debug) {
+    pio_sm_config c = pps_capture_program_get_default_config(offset);
+    
+    // Configure input pin
+    sm_config_set_in_pins(&c, pin_pps);
+    sm_config_set_jmp_pin(&c, pin_pps);
+    
+    // Configure output pin (debug)
+    sm_config_set_set_pins(&c, pin_debug, 1);
+    
+    // Initialize pins
+    pio_gpio_init(pio, pin_pps);
+    pio_gpio_init(pio, pin_debug);
+    
+    gpio_set_dir(pin_pps, GPIO_IN);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_debug, 1, true);
+    
+    // Run at system clock for maximum resolution
+    sm_config_set_clkdiv(&c, 1.0);
+    
+    // Load configuration
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}
