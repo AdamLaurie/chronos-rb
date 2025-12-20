@@ -1,0 +1,18 @@
+# KiCad local files (user-specific, not for version control)
+*.kicad_prl
+fp-info-cache
+*-backups/
+
+# Build directories
+firmware/build/
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
