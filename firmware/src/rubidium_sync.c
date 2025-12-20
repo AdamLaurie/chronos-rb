@@ -10,9 +10,11 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "hardware/timer.h"
+#include "hardware/sync.h"
 
 #include "chronos_rb.h"
 

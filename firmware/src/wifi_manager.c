@@ -11,6 +11,7 @@
 #include <string.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "lwip/netif.h"
 
 #include "chronos_rb.h"
 
@@ -82,10 +83,10 @@ bool wifi_connect(const char *ssid, const char *password) {
         return false;
     }
     
-    /* Get IP address */
-    struct netif *netif = netif_list;
+    /* Get IP address from default netif */
+    struct netif *netif = netif_default;
     if (netif != NULL) {
-        ip_address = netif->ip_addr.addr;
+        ip_address = ip4_addr_get_u32(netif_ip4_addr(netif));
         printf("[WIFI] Connected! IP: %lu.%lu.%lu.%lu\n",
                ip_address & 0xFF,
                (ip_address >> 8) & 0xFF,

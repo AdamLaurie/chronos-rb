@@ -236,22 +236,24 @@ bool rubidium_is_locked(void);
 void pps_capture_init(void);
 void pps_irq_handler(void);
 uint64_t get_last_pps_timestamp(void);
+bool is_pps_valid(void);
 
 /* Frequency counter */
 void freq_counter_init(void);
 uint32_t freq_counter_read(void);
 double get_frequency_offset_ppb(void);
+bool freq_counter_signal_present(void);
 
 /* Time discipline */
 void discipline_init(void);
 void discipline_update(int64_t offset_ns);
 double discipline_get_correction(void);
+bool discipline_is_locked(void);
+void discipline_reset(void);
 
 /* NTP server */
 void ntp_server_init(void);
 void ntp_server_task(void);
-void ntp_handle_request(void *arg, struct udp_pcb *pcb, struct pbuf *p,
-                        const ip_addr_t *addr, uint16_t port);
 
 /* PTP server */
 void ptp_server_init(void);
@@ -264,6 +266,7 @@ void wifi_init(void);
 bool wifi_connect(const char *ssid, const char *password);
 bool wifi_is_connected(void);
 void wifi_task(void);
+void get_ip_address_str(char *buf, size_t len);
 
 /* Web interface */
 void web_init(void);
@@ -280,11 +283,5 @@ void led_blink_activity(void);
 void debug_init(void);
 void debug_print(const char *fmt, ...);
 void debug_print_stats(void);
-
-/* Utility functions */
-uint32_t htonl(uint32_t hostlong);
-uint16_t htons(uint16_t hostshort);
-uint32_t ntohl(uint32_t netlong);
-uint16_t ntohs(uint16_t netshort);
 
 #endif /* CHRONOS_RB_H */
