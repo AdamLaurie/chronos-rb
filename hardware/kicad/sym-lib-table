@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "chronos_rb")(type "KiCad")(uri "${KIPRJMOD}/symbols/chronos_rb.kicad_sym")(options "")(descr "CHRONOS-Rb custom symbols"))
+)

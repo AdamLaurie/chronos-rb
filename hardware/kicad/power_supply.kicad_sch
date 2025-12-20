@@ -1,0 +1,40 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "a1b2c3d4-0001-0001-0001-000000000001")
+	(paper "A4")
+	(title_block
+		(title "Power Supply - 15V/5V/3.3V Rails")
+		(date "2024-12-20")
+		(rev "1.0")
+		(company "CHRONOS-Rb Project")
+		(comment 1 "Input: 15V DC for FE-5680A")
+		(comment 2 "Outputs: +15V, +5V, +3.3V regulated rails")
+		(comment 3 "Power budget: ~15W peak during warmup")
+	)
+	(lib_symbols)
+	(text "Power Supply Sheet"
+		(exclude_from_sim no)
+		(at 50.8 50.8 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "b1b2c3d4-0001-0001-0001-000000000001")
+	)
+	(text "This sheet will contain:\n- 15V input connector and protection\n- 5V switching regulator (LM2596 or similar)\n- 3.3V LDO regulator (AMS1117-3.3 or similar)\n- Bulk capacitors and filtering\n- Power indicator LEDs"
+		(exclude_from_sim no)
+		(at 50.8 60.96 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "b1b2c3d4-0002-0002-0002-000000000002")
+	)
+)

@@ -1,0 +1,40 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "a1b2c3d4-0002-0002-0002-000000000002")
+	(paper "A4")
+	(title_block
+		(title "Signal Conditioning - 10MHz Comparator & 1PPS Level Shifter")
+		(date "2024-12-20")
+		(rev "1.0")
+		(company "CHRONOS-Rb Project")
+		(comment 1 "10MHz: 1Vpp sine -> 3.3V LVCMOS (LT1016/MAX999)")
+		(comment 2 "1PPS: 5V TTL -> 3.3V with ESD protection")
+		(comment 3 "Lock Status: Direct with current limiting")
+	)
+	(lib_symbols)
+	(text "Signal Conditioning Sheet"
+		(exclude_from_sim no)
+		(at 50.8 50.8 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "c1b2c3d4-0001-0001-0001-000000000001")
+	)
+	(text "This sheet will contain:\n- 10MHz high-speed comparator (LT1016 or MAX999)\n- AC coupling and bias network for 10MHz\n- 1PPS level shifter (resistive divider + Schottky)\n- ESD protection (TVS diodes)\n- Lock status input conditioning"
+		(exclude_from_sim no)
+		(at 50.8 60.96 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "c1b2c3d4-0002-0002-0002-000000000002")
+	)
+)

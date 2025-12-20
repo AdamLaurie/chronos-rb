@@ -1,0 +1,40 @@
+(kicad_sch
+	(version 20231120)
+	(generator "eeschema")
+	(generator_version "8.0")
+	(uuid "a1b2c3d4-0003-0003-0003-000000000003")
+	(paper "A4")
+	(title_block
+		(title "Raspberry Pi Pico 2-W Interface")
+		(date "2024-12-20")
+		(rev "1.0")
+		(company "CHRONOS-Rb Project")
+		(comment 1 "RP2350 with CYW43 WiFi")
+		(comment 2 "PIO timing inputs: GP2 (PPS), GP3 (10MHz)")
+		(comment 3 "Status outputs: GP6-9 (LEDs), GP14-18 (Intervals)")
+	)
+	(lib_symbols)
+	(text "Pico Interface Sheet"
+		(exclude_from_sim no)
+		(at 50.8 50.8 0)
+		(effects
+			(font
+				(size 2.54 2.54)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+		(uuid "d1b2c3d4-0001-0001-0001-000000000001")
+	)
+	(text "This sheet will contain:\n- Raspberry Pi Pico 2-W module footprint\n- Decoupling capacitors (100nF + 10uF)\n- Debug header (SWD)\n- Status LED drivers (GP6-9)\n- Interval output buffers (GP14-18)\n- USB connector for programming"
+		(exclude_from_sim no)
+		(at 50.8 60.96 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "d1b2c3d4-0002-0002-0002-000000000002")
+	)
+)
