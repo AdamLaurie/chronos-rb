@@ -68,10 +68,10 @@ bool wifi_connect(const char *ssid, const char *password) {
         printf("[WIFI] ERROR: WiFi not initialized\n");
         return false;
     }
-    
+
     printf("[WIFI] Connecting to '%s'...\n", ssid);
     connection_attempts++;
-    
+
     /* Attempt connection with timeout */
     int result = cyw43_arch_wifi_connect_timeout_ms(
         ssid, password, CYW43_AUTH_WPA2_AES_PSK, 30000);

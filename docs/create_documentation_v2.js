@@ -4,12 +4,13 @@ const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageR
 const fs = require('fs');
 
 // Load images
-const img10MHz = fs.readFileSync('/home/claude/chronos-rb/hardware/10mhz_comparator.png');
-const img1PPS = fs.readFileSync('/home/claude/chronos-rb/hardware/1pps_levelshifter.png');
-const imgPower = fs.readFileSync('/home/claude/chronos-rb/hardware/power_supply.png');
-const imgSystem = fs.readFileSync('/home/claude/chronos-rb/hardware/system_wiring.png');
-const imgLEDs = fs.readFileSync('/home/claude/chronos-rb/hardware/led_circuit.png');
-const imgPulses = fs.readFileSync('/home/claude/chronos-rb/hardware/interval_pulses.png');
+const basePath = '/home/addy/work/claude-code/chronos-rb/hardware';
+const img10MHz = fs.readFileSync(`${basePath}/10mhz_comparator.png`);
+const img1PPS = fs.readFileSync(`${basePath}/1pps_levelshifter.png`);
+const imgPower = fs.readFileSync(`${basePath}/power_supply.png`);
+const imgSystem = fs.readFileSync(`${basePath}/system_wiring.png`);
+const imgLEDs = fs.readFileSync(`${basePath}/led_circuit.png`);
+const imgPulses = fs.readFileSync(`${basePath}/interval_pulses.png`);
 
 // Helper function to create specification tables
 function createSpecTable(data) {
@@ -104,21 +105,50 @@ const doc = new Document({
             
             // Section 4
             new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("4. Power Supply Design")] }),
-            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The FE-5680A requires +15V (physics heater) and +5V (electronics). The Pico needs 3.3V via its onboard regulator from 5V USB or VSYS.")] }),
-            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("4.1 Power Requirements")] }),
-            createSpecTable([["Rail", "Voltage", "Warmup", "Running"], ["+15V", "15V DC", "2.0A", "0.7A"], ["+5V", "5V DC", "0.3A", "0.2A"], ["+3.3V", "3.3V DC", "0.3A", "0.15A"]]),
-            new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300 }, children: [new TextRun("4.2 Power Configuration")] }),
-            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new ImageRun({ type: "png", data: imgPower, transformation: { width: 520, height: 280 }, altText: { title: "Power Supply", description: "Power distribution", name: "Power" } })] }),
-            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("4.3 Safety Notes")] }),
-            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun({ text: "WARNING: ", bold: true }), new TextRun("FE-5680A physics package runs HOT. Ensure ventilation.")] }),
-            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("Add a 3A fuse in series with +15V supply.")] }),
-            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("Never connect/disconnect signals while powered.")] }),
+            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("CHRONOS-Rb uses a universal AC mains input (100-240V AC, 50/60Hz) with isolated DC-DC conversion. The power supply provides +15V for the FE-5680A physics heater, +5V for logic, and +3.3V for digital/analog sections. An integrated zero-crossing detector enables AC mains frequency monitoring.")] }),
+            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("4.1 Power Specifications")] }),
+            createSpecTable([["Parameter", "Value", "Notes"], ["AC Input", "100-240V AC", "Universal mains"], ["Frequency", "50/60 Hz", "Auto-sensing"], ["+15V Output", "3A max", "FE-5680A heater"], ["+5V Output", "1A max", "Logic supply"], ["+3.3V Digital", "500mA max", "Pico, peripherals"], ["+3.3V Analog", "100mA max", "Low-noise, comparator"], ["Isolation", "3kV reinforced", "Mains to LV"]]),
+
+            new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300 }, children: [new TextRun("4.2 AC to DC Conversion Chain")] }),
+            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The power conversion follows this path from mains AC to regulated DC outputs:")] }),
+            new Paragraph({ numbering: { reference: "numbered-list", level: 0 }, children: [new TextRun({ text: "IEC C14 Inlet: ", bold: true }), new TextRun("Standard fused inlet connector for 100-240VAC mains input")] }),
+            new Paragraph({ numbering: { reference: "numbered-list", level: 0 }, children: [new TextRun({ text: "Fuse (2A slow-blow): ", bold: true }), new TextRun("Overcurrent protection on live conductor")] }),
+            new Paragraph({ numbering: { reference: "numbered-list", level: 0 }, children: [new TextRun({ text: "EMI Filter + MOV: ", bold: true }), new TextRun("X2/Y1 capacitors, common-mode choke, MOV surge suppressor")] }),
+            new Paragraph({ numbering: { reference: "numbered-list", level: 0 }, children: [new TextRun({ text: "Bridge Rectifier (GBU806): ", bold: true }), new TextRun("Full-wave rectification, 600V/8A rating")] }),
+            new Paragraph({ numbering: { reference: "numbered-list", level: 0 }, children: [new TextRun({ text: "Bulk Capacitor (470µF/400V): ", bold: true }), new TextRun("Energy storage, produces 140-340V DC bus")] }),
+            new Paragraph({ numbering: { reference: "numbered-list", level: 0 }, children: [new TextRun({ text: "Isolated Flyback Converter: ", bold: true }), new TextRun("Galvanic isolation, steps down to +15V @ 3A")] }),
+            new Paragraph({ numbering: { reference: "numbered-list", level: 0 }, children: [new TextRun({ text: "LM2596 Buck Converter: ", bold: true }), new TextRun("15V to 5V @ 1A switching regulator")] }),
+            new Paragraph({ numbering: { reference: "numbered-list", level: 0 }, children: [new TextRun({ text: "AMS1117/LP5907 LDOs: ", bold: true }), new TextRun("5V to 3.3V linear regulators (digital and low-noise analog)")] }),
+
+            new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300 }, children: [new TextRun("4.3 Power Supply Block Diagram")] }),
+            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The following diagram shows the complete AC-to-DC power conversion chain with isolation barrier between mains-voltage and low-voltage sections:")] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new ImageRun({ type: "png", data: imgPower, transformation: { width: 560, height: 400 }, altText: { title: "Power Supply Block Diagram", description: "AC mains to DC power distribution with isolation", name: "Power" } })] }),
+
+            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("4.4 Zero-Crossing Detector Circuit")] }),
+            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The H11AA1 is an AC-input optocoupler with back-to-back LEDs that detects both positive and negative zero crossings of the AC waveform. This provides galvanic isolation while allowing the Pico to measure mains frequency.")] }),
+            new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: "Circuit Description:", bold: true })] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("AC Live connects through R1+R2 (2× 47kΩ in series, 94kΩ total) to H11AA1 pin 1")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("AC Neutral connects to H11AA1 pin 2")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("H11AA1 pin 4 (collector) connects to GP19 with 10kΩ pull-up to 3.3V")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("H11AA1 pin 3 (emitter) connects to GND on the low-voltage side")] }),
+            new Paragraph({ spacing: { before: 200, after: 200 }, children: [new TextRun("The series resistors (R1+R2) limit LED current to ~2.5mA at 240VAC peak. Using two resistors in series provides adequate voltage rating for mains. The output produces a LOW pulse at each zero crossing.")] }),
+            createSpecTable([["Component", "Value", "Function"], ["R1", "47kΩ 1/2W", "Current limit (mains side)"], ["R2", "47kΩ 1/2W", "Current limit (mains side)"], ["U1", "H11AA1", "AC-input opto, 5.3kV isolation"], ["R3", "10kΩ", "Pull-up to 3.3V (LV side)"], ["Output", "GP19", "AC_ZERO_CROSS to Pico"]]),
+            new Paragraph({ spacing: { before: 200, after: 200 }, children: [new TextRun({ text: "Output Signal: ", bold: true }), new TextRun("Pulses at 2× mains frequency (100Hz for 50Hz mains, 120Hz for 60Hz mains). Firmware measures period between pulses to calculate actual mains frequency with ~0.001Hz resolution.")] }),
+
+            new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300 }, children: [new TextRun("4.5 Safety Notes")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun({ text: "DANGER: ", bold: true, color: "FF0000" }), new TextRun("This design involves hazardous mains voltage. Risk of electric shock or death.")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("Use properly rated enclosure with strain relief for mains cable.")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("Maintain 6mm minimum creepage between mains and low-voltage sections.")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("The zero-crossing detector provides 5.3kV isolation - do not bypass or modify.")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("FE-5680A physics package runs HOT. Ensure adequate ventilation.")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("Never service with mains connected. Use isolation transformer for testing.")] }),
+            new Paragraph({ numbering: { reference: "bullet-list", level: 0 }, children: [new TextRun("Follow all local electrical codes and regulations.")] }),
             new Paragraph({ children: [new PageBreak()] }),
             
             // Section 5
             new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("5. Complete Wiring Guide")] }),
             new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("5.1 GPIO Assignments")] }),
-            createSpecTable([["GPIO", "Function", "Connection"], ["GP2", "1PPS Input", "From level shifter"], ["GP3", "10MHz Input", "From comparator"], ["GP4", "Lock Status", "From FE-5680A pin 9"], ["GP6", "LED Sync", "Green LED"], ["GP7", "LED Network", "Blue LED"], ["GP8", "LED Activity", "Yellow LED"], ["GP9", "LED Error", "Red LED"], ["GP10", "Debug PPS", "Test output"], ["GP12/13", "I2C", "Optional OLED"], ["GP14", "Pulse 0.5s", "500ms interval"], ["GP15", "Pulse 1s", "1 second interval"], ["GP16", "Pulse 6s", "6 second interval"], ["GP17", "Pulse 30s", "30 second interval"], ["GP18", "Pulse 60s", "60 second interval"]]),
+            createSpecTable([["GPIO", "Function", "Connection"], ["GP2", "1PPS Input", "From level shifter"], ["GP3", "10MHz Input", "From comparator"], ["GP4", "Lock Status", "From FE-5680A pin 9"], ["GP6", "LED Sync", "Green LED"], ["GP7", "LED Network", "Blue LED"], ["GP8", "LED Activity", "Yellow LED"], ["GP9", "LED Error", "Red LED"], ["GP10", "Debug PPS", "Test output"], ["GP12/13", "I2C", "Optional OLED"], ["GP14", "Pulse 0.5s", "500ms interval"], ["GP15", "Pulse 1s", "1 second interval"], ["GP16", "Pulse 6s", "6 second interval"], ["GP17", "Pulse 30s", "30 second interval"], ["GP18", "Pulse 60s", "60 second interval"], ["GP19", "AC Zero-Cross", "Mains frequency monitor"]]),
             new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300 }, children: [new TextRun("5.2 System Schematic")] }),
             new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new ImageRun({ type: "png", data: imgSystem, transformation: { width: 580, height: 435 }, altText: { title: "System Wiring", description: "Complete system", name: "System" } })] }),
             new Paragraph({ children: [new PageBreak()] }),
@@ -164,7 +194,7 @@ const doc = new Document({
             new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("8. Firmware Overview")] }),
             new Paragraph({ spacing: { after: 200 }, children: [new TextRun("Build with Pico SDK 2.0+, CMake 3.13+, ARM GCC. Edit chronos_rb.h for WiFi credentials before building. Flash the UF2 file while holding BOOTSEL.")] }),
             new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("8.1 Module Overview")] }),
-            createSpecTable([["Module", "File", "Function"], ["Main", "main.c", "Entry, init, loop"], ["PPS", "pps_capture.c", "1PPS timing"], ["Freq", "freq_counter.c", "10MHz measurement"], ["Sync", "rubidium_sync.c", "State machine"], ["Discipline", "time_discipline.c", "PI controller"], ["NTP", "ntp_server.c", "NTPv4 server"], ["PTP", "ptp_server.c", "IEEE 1588"], ["WiFi", "wifi_manager.c", "Connection mgmt"], ["Web", "web_interface.c", "HTTP interface"]]),
+            createSpecTable([["Module", "File", "Function"], ["Main", "main.c", "Entry, init, loop"], ["CLI", "cli.c", "Serial command interface"], ["PPS", "pps_capture.c", "1PPS timing"], ["Freq", "freq_counter.c", "10MHz measurement"], ["AC Freq", "ac_freq_monitor.c", "Mains frequency monitor"], ["Sync", "rubidium_sync.c", "State machine"], ["Discipline", "time_discipline.c", "PI controller"], ["Pulse", "pulse_output.c", "Configurable GPIO pulses"], ["NTP", "ntp_server.c", "NTPv4 server"], ["PTP", "ptp_server.c", "IEEE 1588"], ["WiFi", "wifi_manager.c", "Connection mgmt"], ["Web", "web_interface.c", "HTTP interface"]]),
             new Paragraph({ children: [new PageBreak()] }),
             
             // Section 9
@@ -199,6 +229,6 @@ const doc = new Document({
 });
 
 Packer.toBuffer(doc).then(buffer => {
-    fs.writeFileSync("/mnt/user-data/outputs/CHRONOS-Rb_Hardware_Guide.docx", buffer);
+    fs.writeFileSync("/home/addy/work/claude-code/chronos-rb/docs/CHRONOS-Rb_Hardware_Guide.docx", buffer);
     console.log("Document created with embedded circuit diagrams!");
 });

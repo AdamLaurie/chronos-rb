@@ -18,6 +18,10 @@
 #include "hardware/watchdog.h"
 
 #include "chronos_rb.h"
+#include "cli.h"
+#include "pulse_output.h"
+#include "ac_freq_monitor.h"
+#include "config.h"
 
 /*============================================================================
  * GLOBAL VARIABLES
@@ -26,10 +30,18 @@
 volatile time_state_t g_time_state = {0};
 volatile statistics_t g_stats = {0};
 volatile bool g_wifi_connected = false;
+volatile bool g_debug_enabled = false;
 
-/* Configuration (loaded from flash or defaults) */
-static char wifi_ssid[33] = WIFI_SSID_DEFAULT;
-static char wifi_pass[65] = WIFI_PASS_DEFAULT;
+/* WiFi auto-connect state machine */
+typedef enum {
+    WIFI_AUTO_IDLE = 0,
+    WIFI_AUTO_PENDING,
+    WIFI_AUTO_CONNECTING,
+    WIFI_AUTO_DONE
+} wifi_auto_state_t;
+
+static wifi_auto_state_t wifi_auto_state = WIFI_AUTO_IDLE;
+static uint32_t wifi_auto_start_time = 0;
 
 /*============================================================================
  * INITIALIZATION
@@ -300,10 +312,87 @@ void chronos_init(void) {
     printf("[INIT] Initializing rubidium sync...\n");
     rubidium_sync_init();
     
+    printf("[INIT] Initializing configuration...\n");
+    config_init();
+
     printf("[INIT] Initializing WiFi...\n");
     wifi_init();
-    
+
+    printf("[INIT] Initializing pulse outputs...\n");
+    pulse_output_init();
+
+    printf("[INIT] Initializing AC frequency monitor...\n");
+    ac_freq_init();
+
+    printf("[INIT] Initializing CLI...\n");
+    cli_init();
+
+    /* Check for WiFi auto-connect */
+    if (config_wifi_auto_connect_enabled()) {
+        config_t *cfg = config_get();
+        printf("[INIT] WiFi auto-connect enabled for '%s'\n", cfg->wifi_ssid);
+        wifi_auto_state = WIFI_AUTO_PENDING;
+    }
+
     printf("[INIT] Initialization complete!\n\n");
+}
+
+/*============================================================================
+ * WIFI AUTO-CONNECT (NON-BLOCKING)
+ *============================================================================*/
+
+/**
+ * Non-blocking WiFi auto-connect task
+ * Called from main loop to handle WiFi connection in background
+ */
+static void wifi_auto_connect_task(void) {
+    switch (wifi_auto_state) {
+        case WIFI_AUTO_IDLE:
+        case WIFI_AUTO_DONE:
+            /* Nothing to do */
+            break;
+
+        case WIFI_AUTO_PENDING:
+            /* Start connection attempt */
+            {
+                config_t *cfg = config_get();
+                printf("[WIFI] Auto-connecting to '%s'...\n", cfg->wifi_ssid);
+                wifi_auto_start_time = time_us_32();
+                wifi_auto_state = WIFI_AUTO_CONNECTING;
+
+                /* Extend watchdog timeout during blocking wifi connect */
+                watchdog_enable(35000, 1);
+
+                /* Initiate connection (this is blocking with CYW43) */
+                if (wifi_connect(cfg->wifi_ssid, cfg->wifi_pass)) {
+                    watchdog_enable(8000, 1);  /* Restore normal timeout */
+                    printf("[WIFI] Auto-connect successful!\n");
+                    char ip_str[16];
+                    get_ip_address_str(ip_str, sizeof(ip_str));
+                    printf("[WIFI] IP Address: %s\n", ip_str);
+
+                    g_wifi_connected = true;
+                    ntp_server_init();
+                    ptp_server_init();
+                    web_init();
+                    printf("[WIFI] Network services started\n");
+                    wifi_auto_state = WIFI_AUTO_DONE;
+                } else {
+                    watchdog_enable(8000, 1);  /* Restore normal timeout */
+                    printf("[WIFI] Auto-connect failed\n");
+                    wifi_auto_state = WIFI_AUTO_DONE;
+                }
+            }
+            break;
+
+        case WIFI_AUTO_CONNECTING:
+            /* Check for timeout (shouldn't reach here with current blocking connect) */
+            if (time_us_32() - wifi_auto_start_time > 30000000) {  /* 30 second timeout */
+                printf("[WIFI] Auto-connect timeout\n");
+                wifi_auto_state = WIFI_AUTO_DONE;
+            }
+            break;
+    }
 }
 
 /*============================================================================
@@ -344,33 +433,37 @@ static void update_status_leds(void) {
 }
 
 /**
- * Print periodic status
+ * Print periodic status (only when debug enabled)
  */
 static void print_status(void) {
+    if (!g_debug_enabled) {
+        return;
+    }
+
     static uint32_t last_status_time = 0;
-    
+
     if (time_us_32() - last_status_time > 10000000) {  /* Every 10 seconds */
         last_status_time = time_us_32();
-        
+
         const char *sync_states[] = {
             "INIT", "FREQ_CAL", "COARSE", "FINE", "LOCKED", "HOLDOVER", "ERROR"
         };
-        
+
         printf("\n[STATUS] Sync: %s | Rb Lock: %s | PPS: %lu | Freq: %lu Hz\n",
                sync_states[g_time_state.sync_state],
                g_time_state.rb_locked ? "YES" : "NO",
                g_time_state.pps_count,
                g_time_state.last_freq_count);
-        
+
         printf("[STATUS] Offset: %lld ns | Freq Offset: %.3f ppb\n",
                g_time_state.offset_ns,
                g_time_state.frequency_offset);
-        
+
         printf("[STATUS] NTP Requests: %lu | PTP Sync: %lu | Errors: %lu\n",
                g_stats.ntp_requests,
                g_stats.ptp_sync_sent,
                g_stats.errors);
-        
+
         if (g_wifi_connected) {
             extern uint32_t get_ip_address(void);
             uint32_t ip = get_ip_address();
@@ -391,25 +484,9 @@ int main(void) {
     /* Initialize everything */
     chronos_init();
     
-    /* Try to connect to WiFi */
-    printf("[WIFI] Connecting to %s...\n", wifi_ssid);
-    if (wifi_connect(wifi_ssid, wifi_pass)) {
-        printf("[WIFI] Connected!\n");
-        g_wifi_connected = true;
-        
-        /* Start network services */
-        printf("[NTP] Starting NTP server on port %d...\n", NTP_PORT);
-        ntp_server_init();
-        
-        printf("[PTP] Starting PTP server on ports %d/%d...\n", 
-               PTP_EVENT_PORT, PTP_GENERAL_PORT);
-        ptp_server_init();
-        
-        printf("[WEB] Starting web interface on port %d...\n", WEB_PORT);
-        web_init();
-    } else {
-        printf("[WIFI] Connection failed, starting AP mode...\n");
-        /* TODO: Implement AP mode for configuration */
+    /* WiFi connection message */
+    if (wifi_auto_state != WIFI_AUTO_PENDING) {
+        printf("[WIFI] Use 'wifi <SSID> <PWD>' command to connect\n");
     }
     
     printf("\n[MAIN] Entering main loop...\n\n");
@@ -424,7 +501,10 @@ int main(void) {
         
         /* Run all tasks */
         rubidium_sync_task();
-        
+
+        /* WiFi auto-connect (non-blocking) */
+        wifi_auto_connect_task();
+
         if (g_wifi_connected) {
             wifi_task();
             ntp_server_task();
@@ -437,10 +517,19 @@ int main(void) {
         
         /* Generate interval pulses */
         update_interval_pulses();
-        
+
+        /* Process configurable pulse outputs */
+        pulse_output_task();
+
+        /* Process AC frequency monitor */
+        ac_freq_task();
+
+        /* Process CLI input */
+        cli_task();
+
         /* Print periodic status */
         print_status();
-        
+
         /* Small delay to prevent tight loop */
         sleep_us(100);
     }

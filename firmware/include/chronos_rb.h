@@ -63,6 +63,9 @@
 #define GPIO_PULSE_30S          17      /* GP17 - 30 second interval pulse */
 #define GPIO_PULSE_60S          18      /* GP18 - 60 second interval pulse */
 
+/* AC Mains Frequency Monitor Input */
+#define GPIO_AC_ZERO_CROSS      19      /* GP19 - Zero-crossing detector input */
+
 /* Interval pulse timing */
 #define PULSE_WIDTH_MS          10      /* Output pulse width in milliseconds */
 
@@ -211,6 +214,7 @@ typedef struct {
 extern volatile time_state_t g_time_state;
 extern volatile statistics_t g_stats;
 extern volatile bool g_wifi_connected;
+extern volatile bool g_debug_enabled;
 
 /*============================================================================
  * FUNCTION PROTOTYPES
@@ -283,5 +287,11 @@ void led_blink_activity(void);
 void debug_init(void);
 void debug_print(const char *fmt, ...);
 void debug_print_stats(void);
+
+/* AC Mains Frequency Monitor */
+void ac_freq_init(void);
+void ac_freq_task(void);
+float ac_freq_get_hz(void);
+bool ac_freq_is_valid(void);
 
 #endif /* CHRONOS_RB_H */

@@ -5,13 +5,14 @@
 	(uuid "a1b2c3d4-0001-0001-0001-000000000001")
 	(paper "A4")
 	(title_block
-		(title "Power Supply - 15V/5V/3.3V Rails")
-		(date "2024-12-20")
-		(rev "1.0")
+		(title "Power Supply - AC Mains Input with Frequency Monitor")
+		(date "2024-12-21")
+		(rev "2.0")
 		(company "CHRONOS-Rb Project")
-		(comment 1 "Input: 15V DC for FE-5680A")
-		(comment 2 "Outputs: +15V, +5V, +3.3V regulated rails")
-		(comment 3 "Power budget: ~15W peak during warmup")
+		(comment 1 "Input: 100-240V AC 50/60Hz Universal Mains")
+		(comment 2 "Outputs: +15V/3A, +5V/1A, +3.3V regulated rails")
+		(comment 3 "Features: Isolated AC-DC, Zero-crossing freq monitor")
+		(comment 4 "WARNING: Contains hazardous mains voltage")
 	)
 	(lib_symbols)
 	(text "Power Supply Sheet"
@@ -26,7 +27,7 @@
 		)
 		(uuid "b1b2c3d4-0001-0001-0001-000000000001")
 	)
-	(text "This sheet will contain:\n- 15V input connector and protection\n- 5V switching regulator (LM2596 or similar)\n- 3.3V LDO regulator (AMS1117-3.3 or similar)\n- Bulk capacitors and filtering\n- Power indicator LEDs"
+	(text "This sheet will contain:\n- AC mains input (IEC C14) with EMI filter and fusing\n- Bridge rectifier and bulk capacitors\n- Isolated DC-DC converter for 15V @ 3A (flyback or module)\n- Zero-crossing detector (H11AA1 opto) for AC freq monitoring\n- 5V switching regulator (LM2596 or similar)\n- 3.3V LDO regulators (digital and analog)\n- Power indicator LEDs\n\nSAFETY: Reinforced isolation required between mains and LV sections"
 		(exclude_from_sim no)
 		(at 50.8 60.96 0)
 		(effects
