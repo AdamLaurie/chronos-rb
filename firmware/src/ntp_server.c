@@ -202,8 +202,13 @@ void ntp_handle_request(void *arg, struct udp_pcb *pcb, struct pbuf *p,
  * Initialize NTP server
  */
 void ntp_server_init(void) {
+    if (ntp_server_running) {
+        printf("[NTP] Already running\n");
+        return;
+    }
+
     printf("[NTP] Initializing NTP server\n");
-    
+
     /* Create UDP PCB */
     ntp_pcb = udp_new();
     if (ntp_pcb == NULL) {

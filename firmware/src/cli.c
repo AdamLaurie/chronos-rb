@@ -328,14 +328,11 @@ static void cmd_wifi(int argc, char **argv) {
         config_save();
         printf("Credentials saved for auto-connect\n");
 
-        /* Start network services if not already running */
-        if (!g_wifi_connected) {
-            g_wifi_connected = true;
-            ntp_server_init();
-            ptp_server_init();
-            web_init();
-            printf("Network services started\n");
-        }
+        /* Start network services */
+        ntp_server_init();
+        ptp_server_init();
+        web_init();
+        printf("Network services started\n");
     } else {
         /* Restore normal watchdog timeout */
         watchdog_enable(8000, 1);

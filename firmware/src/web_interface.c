@@ -164,15 +164,15 @@ static int generate_status_page(char *buf, size_t len) {
         sync_class, led_class, sync_states[g_time_state.sync_state],
         g_time_state.rb_locked ? "LOCKED" : "UNLOCKED",
         g_time_state.time_valid ? "YES" : "NO",
-        time_us_64() / 1000000,
-        g_time_state.offset_ns,
-        g_time_state.frequency_offset,
-        g_time_state.pps_count,
-        g_time_state.last_freq_count,
+        (unsigned long)(time_us_64() / 1000000),
+        (long long)g_time_state.offset_ns,
+        (double)g_time_state.frequency_offset,
+        (unsigned long)g_time_state.pps_count,
+        (unsigned long)g_time_state.last_freq_count,
         ip_str,
-        NTP_PORT, stratum,
-        g_stats.ntp_requests,
-        g_stats.ptp_sync_sent,
+        NTP_PORT, (int)stratum,
+        (unsigned long)g_stats.ntp_requests,
+        (unsigned long)g_stats.ptp_sync_sent,
         ip_str, ip_str,
         CHRONOS_VERSION_STRING
     );
@@ -240,15 +240,15 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
     bool is_json = (strstr(request, "/api/status") != NULL);
     
     /* Allocate response buffer */
-    static char response[4096];
+    static char response[8192];
     int content_len;
-    
+
     if (is_json) {
         char json_buf[512];
         content_len = generate_json_status(json_buf, sizeof(json_buf));
         snprintf(response, sizeof(response), "%s%s", HTTP_JSON_HEADER, json_buf);
     } else if (strstr(request, "GET / ") != NULL || strstr(request, "GET /index") != NULL) {
-        char html_buf[3500];
+        static char html_buf[6000];
         generate_status_page(html_buf, sizeof(html_buf));
         snprintf(response, sizeof(response), "%s%s", HTTP_RESPONSE_HEADER, html_buf);
     } else {
@@ -260,7 +260,7 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
     /* Send response */
     size_t resp_len = strlen(response);
     err_t write_err = tcp_write(tpcb, response, resp_len, TCP_WRITE_FLAG_COPY);
-    
+
     if (write_err == ERR_OK) {
         tcp_output(tpcb);
         tcp_sent(tpcb, web_sent_callback);
@@ -291,8 +291,13 @@ static err_t web_accept_callback(void *arg, struct tcp_pcb *newpcb, err_t err) {
  * Initialize web server
  */
 void web_init(void) {
+    if (web_running) {
+        printf("[WEB] Already running\n");
+        return;
+    }
+
     printf("[WEB] Initializing web interface\n");
-    
+
     web_pcb = tcp_new();
     if (web_pcb == NULL) {
         printf("[WEB] ERROR: Failed to create TCP PCB\n");
@@ -316,9 +321,11 @@ void web_init(void) {
     tcp_accept(web_pcb, web_accept_callback);
     
     web_running = true;
+    char ip_str[20];
+    get_ip_address_str(ip_str, sizeof(ip_str));
     printf("[WEB] Server running on port %d\n", WEB_PORT);
-    printf("[WEB] Status page: http://<ip>/\n");
-    printf("[WEB] JSON API: http://<ip>/api/status\n");
+    printf("[WEB] Status page: http://%s/\n", ip_str);
+    printf("[WEB] JSON API: http://%s/api/status\n", ip_str);
 }
 
 /**

@@ -346,8 +346,13 @@ static void ptp_general_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p,
  * Initialize PTP server
  */
 void ptp_server_init(void) {
+    if (ptp_server_running) {
+        printf("[PTP] Already running\n");
+        return;
+    }
+
     printf("[PTP] Initializing PTP server\n");
-    
+
     /* Initialize clock identity */
     init_clock_identity();
     

@@ -28,7 +28,7 @@
  * MEMORY CONFIGURATION
  *============================================================================*/
 
-#define MEM_SIZE                    4000
+#define MEM_SIZE                    8000
 #define MEMP_NUM_TCP_PCB            5
 #define MEMP_NUM_TCP_PCB_LISTEN     8
 #define MEMP_NUM_TCP_SEG            32
@@ -67,8 +67,8 @@
 #define LWIP_TCP                    1
 #define TCP_TTL                     64
 #define TCP_MSS                     1460
-#define TCP_WND                     (4 * TCP_MSS)
-#define TCP_SND_BUF                 (2 * TCP_MSS)
+#define TCP_WND                     (8 * TCP_MSS)
+#define TCP_SND_BUF                 (4 * TCP_MSS)
 #define TCP_SND_QUEUELEN            ((4 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
 #define TCP_QUEUE_OOSEQ             0
 #define TCP_OVERSIZE                TCP_MSS
