@@ -11,6 +11,7 @@
 #include <string.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "hardware/watchdog.h"
 #include "lwip/netif.h"
 
 #include "chronos_rb.h"
@@ -61,7 +62,7 @@ void wifi_init(void) {
  *============================================================================*/
 
 /**
- * Connect to WiFi network
+ * Connect to WiFi network (non-blocking with manual polling)
  */
 bool wifi_connect(const char *ssid, const char *password) {
     if (!wifi_initialized) {
@@ -72,34 +73,60 @@ bool wifi_connect(const char *ssid, const char *password) {
     printf("[WIFI] Connecting to '%s'...\n", ssid);
     connection_attempts++;
 
-    /* Attempt connection with timeout */
-    int result = cyw43_arch_wifi_connect_timeout_ms(
-        ssid, password, CYW43_AUTH_WPA2_AES_PSK, 30000);
-    
+    /* Start async connection */
+    int result = cyw43_arch_wifi_connect_async(ssid, password, CYW43_AUTH_WPA2_AES_PSK);
     if (result != 0) {
-        printf("[WIFI] ERROR: Connection failed (error %d)\n", result);
+        printf("[WIFI] ERROR: Failed to start connection (error %d)\n", result);
         wifi_connected = false;
         g_wifi_connected = false;
         return false;
     }
-    
-    /* Get IP address from default netif */
-    struct netif *netif = netif_default;
-    if (netif != NULL) {
-        ip_address = ip4_addr_get_u32(netif_ip4_addr(netif));
-        printf("[WIFI] Connected! IP: %lu.%lu.%lu.%lu\n",
-               ip_address & 0xFF,
-               (ip_address >> 8) & 0xFF,
-               (ip_address >> 16) & 0xFF,
-               (ip_address >> 24) & 0xFF);
+
+    /* Poll for IP address with timeout (30s in 100ms chunks) */
+    for (int i = 0; i < 300; i++) {
+        sleep_ms(100);
+        watchdog_update();
+
+        /* Check if we got an IP address (most reliable indicator) */
+        struct netif *netif = netif_default;
+        if (netif != NULL && !ip4_addr_isany_val(*netif_ip4_addr(netif))) {
+            ip_address = ip4_addr_get_u32(netif_ip4_addr(netif));
+            printf("[WIFI] Connected! IP: %lu.%lu.%lu.%lu\n",
+                   ip_address & 0xFF,
+                   (ip_address >> 8) & 0xFF,
+                   (ip_address >> 16) & 0xFF,
+                   (ip_address >> 24) & 0xFF);
+
+            strncpy(current_ssid, ssid, sizeof(current_ssid) - 1);
+            wifi_connected = true;
+            g_wifi_connected = true;
+            last_connection_time = time_us_32() / 1000000;
+            return true;
+        }
+
+        /* Check for definite failure states */
+        int status = cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
+        if (status == CYW43_LINK_FAIL || status == CYW43_LINK_BADAUTH) {
+            printf("[WIFI] ERROR: Connection failed (status %d)\n", status);
+            break;
+        }
+
+        /* Print progress every 5 seconds */
+        if (i > 0 && i % 50 == 0) {
+            if (status >= CYW43_LINK_JOIN) {
+                printf("[WIFI] Associated, waiting for IP... (%d s)\n", i / 10);
+            } else {
+                printf("[WIFI] Connecting... (%d s)\n", i / 10);
+            }
+        }
     }
-    
-    strncpy(current_ssid, ssid, sizeof(current_ssid) - 1);
-    wifi_connected = true;
-    g_wifi_connected = true;
-    last_connection_time = time_us_32() / 1000000;
-    
-    return true;
+
+    /* Connection failed or timed out */
+    cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+    wifi_connected = false;
+    g_wifi_connected = false;
+    printf("[WIFI] Connection timed out or failed\n");
+    return false;
 }
 
 /**

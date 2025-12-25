@@ -360,12 +360,8 @@ static void wifi_auto_connect_task(void) {
                 wifi_auto_start_time = time_us_32();
                 wifi_auto_state = WIFI_AUTO_CONNECTING;
 
-                /* Extend watchdog timeout during blocking wifi connect */
-                watchdog_enable(35000, 1);
-
-                /* Initiate connection (this is blocking with CYW43) */
+                /* Initiate connection (now non-blocking with internal watchdog feeding) */
                 if (wifi_connect(cfg->wifi_ssid, cfg->wifi_pass)) {
-                    watchdog_enable(8000, 1);  /* Restore normal timeout */
                     printf("[WIFI] Auto-connect successful!\n");
                     char ip_str[16];
                     get_ip_address_str(ip_str, sizeof(ip_str));
@@ -378,7 +374,6 @@ static void wifi_auto_connect_task(void) {
                     printf("[WIFI] Network services started\n");
                     wifi_auto_state = WIFI_AUTO_DONE;
                 } else {
-                    watchdog_enable(8000, 1);  /* Restore normal timeout */
                     printf("[WIFI] Auto-connect failed\n");
                     wifi_auto_state = WIFI_AUTO_DONE;
                 }
