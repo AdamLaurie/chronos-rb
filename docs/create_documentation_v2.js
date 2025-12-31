@@ -7,6 +7,7 @@ const fs = require('fs');
 const basePath = '/home/addy/work/claude-code/chronos-rb/hardware';
 const img10MHz = fs.readFileSync(`${basePath}/10mhz_comparator.png`);
 const img1PPS = fs.readFileSync(`${basePath}/1pps_levelshifter.png`);
+const imgLock = fs.readFileSync(`${basePath}/lock_detector.png`);
 const imgPower = fs.readFileSync(`${basePath}/power_supply.png`);
 const imgSystem = fs.readFileSync(`${basePath}/system_wiring.png`);
 const imgLEDs = fs.readFileSync(`${basePath}/led_circuit.png`);
@@ -101,8 +102,12 @@ const doc = new Document({
             new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("3.2 1PPS Signal (from divider or external)")] }),
             new Paragraph({ spacing: { after: 200 }, children: [new TextRun("Since most FE-5680A units don't have native 1PPS, derive it from 10MHz or use external GPS. If using a 5V external source, a voltage divider with Schottky diode provides level shifting and ESD protection.")] }),
             new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new ImageRun({ type: "png", data: img1PPS, transformation: { width: 420, height: 252 }, altText: { title: "1PPS Level Shifter", description: "5V to 3.3V divider", name: "1PPS" } })] }),
+
+            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("3.3 Lock Status Level Shifter")] }),
+            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The FE-5680A lock output (Pin 3) is 4.8V when unlocked and 0.8V when locked. An NPN transistor (2N3904) inverts and level-shifts this signal to 3.3V logic, where HIGH indicates locked status.")] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new ImageRun({ type: "png", data: imgLock, transformation: { width: 468, height: 288 }, altText: { title: "Lock Detector", description: "NPN level shifter for lock status", name: "Lock" } })] }),
             new Paragraph({ children: [new PageBreak()] }),
-            
+
             // Section 4
             new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("4. Power Supply Design")] }),
             new Paragraph({ spacing: { after: 200 }, children: [new TextRun("CHRONOS-Rb uses a universal AC mains input (100-240V AC, 50/60Hz) with isolated DC-DC conversion. The power supply provides +15V for the FE-5680A physics heater, +5V for logic, and +3.3V for digital/analog sections. An integrated zero-crossing detector enables AC mains frequency monitoring.")] }),
