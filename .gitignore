@@ -16,3 +16,11 @@ firmware/build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Temporary/lock files
+*.~lock.*
+.~lock.*
