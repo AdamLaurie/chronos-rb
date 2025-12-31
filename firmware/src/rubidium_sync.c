@@ -141,8 +141,9 @@ void pps_irq_handler(void) {
  * Check rubidium lock status
  */
 static bool check_rb_lock(void) {
-    /* FE-5680A lock pin is active low */
-    bool locked = !gpio_get(GPIO_RB_LOCK_STATUS);
+    /* FE-5680A lock: 0.8V=locked, 4.8V=unlocked
+     * After NPN transistor level shifter: GPIO HIGH=locked, LOW=unlocked */
+    bool locked = gpio_get(GPIO_RB_LOCK_STATUS);
     
     if (locked && !rb_lock_status) {
         printf("[RB] Rubidium oscillator LOCKED\n");

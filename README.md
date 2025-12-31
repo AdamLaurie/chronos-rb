@@ -121,7 +121,7 @@ See the Hardware Guide document for complete schematics. Key connections:
 |-----------|--------|--------|
 | GP2 | 1PPS Input | FE-5680A via level shifter |
 | GP3 | 10MHz Input | FE-5680A via comparator |
-| GP4 | Lock Status | FE-5680A pin 9 |
+| GP4 | Lock Status | FE-5680A pin 3 via NPN level shifter |
 | GP6-9 | Status LEDs | With 330Ω resistors |
 | GP14 | 0.5s Pulse | Interval output |
 | GP15 | 1s Pulse | Interval output |

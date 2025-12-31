@@ -60,10 +60,10 @@ void gpio_init_all(void) {
     gpio_init(GPIO_10MHZ_INPUT);
     gpio_set_dir(GPIO_10MHZ_INPUT, GPIO_IN);
     
-    /* Initialize Rubidium lock status input (active low) */
+    /* Initialize Rubidium lock status input (HIGH=locked via NPN level shifter) */
     gpio_init(GPIO_RB_LOCK_STATUS);
     gpio_set_dir(GPIO_RB_LOCK_STATUS, GPIO_IN);
-    gpio_pull_up(GPIO_RB_LOCK_STATUS);
+    /* External pull-up via NPN collector resistor - no internal pull needed */
     
     /* Initialize optional enable output */
     gpio_init(GPIO_RB_ENABLE);

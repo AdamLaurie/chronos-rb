@@ -84,7 +84,7 @@ FE-5680A (10MHz + 1PPS)
 Critical pins defined in `chronos_rb.h`:
 - **GP2**: 1PPS input (PIO capture)
 - **GP3**: 10MHz input (frequency counter)
-- **GP4**: Rubidium lock status (active low from FE-5680A pin 9)
+- **GP4**: Rubidium lock status (HIGH=locked, via NPN level shifter from FE-5680A pin 3)
 - **GP6-9**: Status LEDs (sync/network/activity/error)
 - **GP14-18**: Interval pulse outputs (0.5s/1s/6s/30s/60s)
 

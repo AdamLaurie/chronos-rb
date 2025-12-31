@@ -16,7 +16,7 @@ This phase implements the critical signal conditioning circuits that convert the
 - [ ] Add 100pF capacitor across the lower resistor of the divider to preserve fast PPS edges while filtering noise
 - [ ] Create input protection on the 1PPS line: 100 ohm series resistor before the divider to limit surge current
 - [ ] Add a buffer stage after the 1PPS divider using a 74LVC1G17 Schmitt trigger for clean digital edges (optional but recommended section)
-- [ ] Create the RB_LOCK status input circuit: 10k pullup to 3.3V (since FE-5680A lock output is open-collector/active-low), 100nF filter capacitor
+- [ ] Create the RB_LOCK status input circuit: NPN transistor (2N3904) level shifter with 22k input resistor, 10k base-to-GND resistor, 10k collector pull-up to 3.3V. FE-5680A outputs 4.8V (unlocked) / 0.8V (locked), transistor inverts to GPIO HIGH=locked, LOW=unlocked
 - [ ] Add net labels to all signal conditioning outputs: CLK_10MHZ_3V3, PPS_3V3, RB_LOCK_3V3
 - [ ] Add test points (TP symbols) at critical nodes: 10MHz input, 10MHz output, 1PPS input, 1PPS output, comparator threshold
 - [ ] Create hierarchical labels for signals that connect to the Pico Interface sheet

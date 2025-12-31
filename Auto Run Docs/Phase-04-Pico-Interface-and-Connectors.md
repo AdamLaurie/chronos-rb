@@ -20,8 +20,8 @@ This phase designs the Raspberry Pi Pico 2-W interface circuitry and all externa
 - [ ] Create interval pulse output section on GP14-GP18 with individual 100 ohm series resistors
 - [ ] Add a 6-pin header for interval pulse outputs: 0.5s, 1s, 6s, 30s, 60s, and GND
 - [ ] In `connectors.kicad_sch`, create the FE-5680A connector interface using a DB-9 female connector
-- [ ] Map DB-9 pins per FE-5680A pinout: pin 1 (+15V), pin 2 (RF OUT), pin 5 (GND), pin 7 (1PPS), pin 9 (LOCK)
-- [ ] Add pin 3 and pin 4 connections for optional frequency adjustment (C-field) if needed
+- [ ] Map DB-9 pins per FE-5680A pinout: pin 1 (+15V), pin 2 (GND), pin 3 (LOCK), pin 4 (+5V), pin 5 (GND), pin 7 (10MHz)
+- [ ] Note: 1PPS may need to be derived from 10MHz using a divider circuit (not all FE-5680A units have 1PPS output)
 - [ ] Create a 2-pin screw terminal for +15V power input as alternative to barrel jack
 - [ ] Add a USB-C or micro-USB breakout connector for Pico programming access
 - [ ] Create an SMA or BNC connector footprint for external 10MHz reference output (active buffer from Pico output)

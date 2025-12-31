@@ -26,7 +26,7 @@
 		)
 		(uuid "e1b2c3d4-0001-0001-0001-000000000001")
 	)
-	(text "This sheet will contain:\n- FE-5680A DB-9 connector (Pin 7: 10MHz, Pin 5: 1PPS, Pin 9: Lock)\n- 15V DC power input barrel jack\n- Optional BNC/SMA for external 1PPS output\n- Optional BNC/SMA for external 10MHz output\n- RJ-45 for future Ethernet expansion"
+	(text "This sheet will contain:\n- FE-5680A DB-9 connector (Pin 1: +15V, Pin 2: GND, Pin 3: Lock, Pin 4: +5V, Pin 5: GND, Pin 7: 10MHz)\n- 15V DC power input barrel jack\n- Optional BNC/SMA for external 1PPS output\n- Optional BNC/SMA for external 10MHz output\n- RJ-45 for future Ethernet expansion"
 		(exclude_from_sim no)
 		(at 50.8 60.96 0)
 		(effects

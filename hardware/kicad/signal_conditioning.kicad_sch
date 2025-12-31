@@ -11,7 +11,7 @@
 		(company "CHRONOS-Rb Project")
 		(comment 1 "10MHz: 1Vpp sine -> 3.3V LVCMOS (LT1016/MAX999)")
 		(comment 2 "1PPS: 5V TTL -> 3.3V with ESD protection")
-		(comment 3 "Lock Status: Direct with current limiting")
+		(comment 3 "Lock Status: NPN level shifter (4.8V/0.8V -> 3.3V logic)")
 	)
 	(lib_symbols)
 	(text "Signal Conditioning Sheet"
@@ -26,7 +26,7 @@
 		)
 		(uuid "c1b2c3d4-0001-0001-0001-000000000001")
 	)
-	(text "This sheet will contain:\n- 10MHz high-speed comparator (LT1016 or MAX999)\n- AC coupling and bias network for 10MHz\n- 1PPS level shifter (resistive divider + Schottky)\n- ESD protection (TVS diodes)\n- Lock status input conditioning"
+	(text "This sheet will contain:\n- 10MHz high-speed comparator (LT1016 or MAX999)\n- AC coupling and bias network for 10MHz\n- 1PPS level shifter (resistive divider + Schottky) or derived from 10MHz\n- ESD protection (TVS diodes)\n- Lock status: NPN transistor (2N3904) with 22k/10k divider (4.8V unlocked -> LOW, 0.8V locked -> HIGH)"
 		(exclude_from_sim no)
 		(at 50.8 60.96 0)
 		(effects
