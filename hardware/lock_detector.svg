@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 320">
+  <!-- Background -->
+  <rect width="520" height="320" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="260" y="28" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#1a1a2e">Lock Status Level Shifter (NPN Inverter)</text>
+
+  <!-- Input label -->
+  <text x="25" y="130" font-family="Arial" font-size="11" fill="#333" font-weight="bold">LOCK</text>
+  <text x="25" y="145" font-family="Arial" font-size="10" fill="#666">FE-5680A Pin 3</text>
+  <text x="25" y="160" font-family="Arial" font-size="10" fill="#666">4.8V=unlocked</text>
+  <text x="25" y="175" font-family="Arial" font-size="10" fill="#666">0.8V=locked</text>
+
+  <!-- Input line -->
+  <line x1="95" y1="140" x2="120" y2="140" stroke="#333" stroke-width="2"/>
+
+  <!-- R6 - Base input resistor -->
+  <rect x="120" y="130" width="50" height="20" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="145" y="125" text-anchor="middle" font-family="Arial" font-size="11" fill="#333">R6</text>
+  <text x="145" y="165" text-anchor="middle" font-family="Arial" font-size="10" fill="#666">22kΩ</text>
+
+  <!-- Line from R6 to junction -->
+  <line x1="170" y1="140" x2="210" y2="140" stroke="#333" stroke-width="2"/>
+
+  <!-- Junction point at base -->
+  <circle cx="210" cy="140" r="3" fill="#333"/>
+
+  <!-- Line to transistor base -->
+  <line x1="210" y1="140" x2="250" y2="140" stroke="#333" stroke-width="2"/>
+
+  <!-- R7 - Base to GND resistor -->
+  <line x1="210" y1="140" x2="210" y2="170" stroke="#333" stroke-width="2"/>
+  <rect x="200" y="170" width="20" height="50" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="228" y="190" font-family="Arial" font-size="11" fill="#333">R7</text>
+  <text x="228" y="205" font-family="Arial" font-size="10" fill="#666">10kΩ</text>
+  <line x1="210" y1="220" x2="210" y2="250" stroke="#333" stroke-width="2"/>
+
+  <!-- Ground for R7 -->
+  <line x1="200" y1="250" x2="220" y2="250" stroke="#333" stroke-width="2"/>
+  <line x1="204" y1="256" x2="216" y2="256" stroke="#333" stroke-width="2"/>
+  <line x1="208" y1="262" x2="212" y2="262" stroke="#333" stroke-width="2"/>
+
+  <!-- NPN Transistor Q1 -->
+  <!-- Base line -->
+  <line x1="250" y1="140" x2="270" y2="140" stroke="#333" stroke-width="2"/>
+  <!-- Transistor body (vertical line) -->
+  <line x1="270" y1="115" x2="270" y2="165" stroke="#333" stroke-width="3"/>
+  <!-- Collector line (angled up) -->
+  <line x1="270" y1="125" x2="295" y2="100" stroke="#333" stroke-width="2"/>
+  <!-- Emitter line (angled down with arrow) -->
+  <line x1="270" y1="155" x2="295" y2="180" stroke="#333" stroke-width="2"/>
+  <!-- Emitter arrow -->
+  <polygon points="295,180 285,175 288,183" fill="#333"/>
+
+  <!-- Transistor label -->
+  <text x="255" y="105" font-family="Arial" font-size="11" fill="#333">Q1</text>
+  <text x="248" y="190" font-family="Arial" font-size="10" fill="#666">2N3904</text>
+
+  <!-- Collector vertical line up -->
+  <line x1="295" y1="100" x2="295" y2="70" stroke="#333" stroke-width="2"/>
+
+  <!-- Junction at collector -->
+  <circle cx="295" cy="70" r="3" fill="#333"/>
+
+  <!-- R8 - Collector pull-up resistor -->
+  <line x1="295" y1="70" x2="295" y2="50" stroke="#333" stroke-width="2"/>
+  <rect x="285" y="20" width="20" height="30" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="312" y="32" font-family="Arial" font-size="11" fill="#333">R8</text>
+  <text x="312" y="47" font-family="Arial" font-size="10" fill="#666">10kΩ</text>
+
+  <!-- +3.3V line -->
+  <line x1="295" y1="20" x2="295" y2="8" stroke="#e94560" stroke-width="2"/>
+  <text x="295" y="6" text-anchor="middle" font-family="Arial" font-size="10" fill="#e94560" font-weight="bold">+3.3V</text>
+
+  <!-- Output line from collector junction -->
+  <line x1="295" y1="70" x2="400" y2="70" stroke="#333" stroke-width="2"/>
+
+  <!-- Output label -->
+  <circle cx="400" cy="70" r="5" fill="#4ade80" stroke="#333" stroke-width="1.5"/>
+  <text x="415" y="65" font-family="Arial" font-size="11" fill="#333" font-weight="bold">LOCK</text>
+  <text x="415" y="80" font-family="Arial" font-size="10" fill="#666">→ Pico GP4</text>
+  <text x="415" y="95" font-family="Arial" font-size="10" fill="#4ade80" font-weight="bold">HIGH = locked</text>
+
+  <!-- Emitter to GND -->
+  <line x1="295" y1="180" x2="295" y2="250" stroke="#333" stroke-width="2"/>
+
+  <!-- Ground for emitter -->
+  <line x1="285" y1="250" x2="305" y2="250" stroke="#333" stroke-width="2"/>
+  <line x1="289" y1="256" x2="301" y2="256" stroke="#333" stroke-width="2"/>
+  <line x1="293" y1="262" x2="297" y2="262" stroke="#333" stroke-width="2"/>
+  <text x="295" y="278" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">GND</text>
+
+  <!-- Operation note -->
+  <rect x="360" y="130" width="150" height="75" fill="#f0f8ff" stroke="#0f3460" stroke-width="1" rx="4"/>
+  <text x="435" y="148" text-anchor="middle" font-family="Arial" font-size="10" fill="#0f3460" font-weight="bold">Operation:</text>
+  <text x="435" y="165" text-anchor="middle" font-family="Arial" font-size="9" fill="#0f3460">4.8V in → Q1 ON → OUT LOW</text>
+  <text x="435" y="180" text-anchor="middle" font-family="Arial" font-size="9" fill="#0f3460">0.8V in → Q1 OFF → OUT HIGH</text>
+  <text x="435" y="198" text-anchor="middle" font-family="Arial" font-size="9" fill="#0f3460" font-weight="bold">Inverts signal polarity</text>
+
+  <!-- Component box -->
+  <rect x="20" y="288" width="480" height="28" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="4"/>
+  <text x="260" y="306" text-anchor="middle" font-family="Arial" font-size="10" fill="#333">
+    <tspan font-weight="bold">Components:</tspan> R6 = 22kΩ | R7 = 10kΩ | R8 = 10kΩ | Q1 = 2N3904 NPN transistor
+  </text>
+</svg>
