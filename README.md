@@ -37,7 +37,7 @@ A Stratum-1 NTP/PTP time server for Raspberry Pi Pico 2-W, disciplined by an FE-
 
 1. **Raspberry Pi Pico 2-W** - RP2350 with WiFi
 2. **FE-5680A Rubidium Oscillator** - 10MHz output (DB-9 version)
-3. **1PPS Source** - Either 7× 74HC4017 divider chain OR GPS module (see Signal Conditioning)
+3. **1PPS Source** - Either 4× 74HC390 divider chain OR GPS module (see Signal Conditioning)
 4. **15V 3A Power Supply** - For rubidium physics package
 5. **LT1016 or MAX999 Comparator** - 10MHz sine-to-square conversion
 6. **Signal Conditioning Components** - See BOM in documentation
@@ -248,22 +248,22 @@ Sine    │  (100)  │      LT1016
 
 #### Option 1: Divide 10MHz (Recommended)
 
-Use cascaded decade counters to divide 10MHz by 10,000,000:
+Use 74HC390 dual decade counters to divide 10MHz by 10,000,000:
 
 ```
-10MHz ───┬──► 74HC4017 ──► 74HC4017 ──► 74HC4017 ──► ... ──► 1PPS
-Square   │    (÷10)        (÷10)        (÷10)         (×7)
+10MHz ───┬──► 74HC390 ──► 74HC390 ──► 74HC390 ──► 74HC390 ──► 1PPS
+Square   │     (÷100)      (÷100)      (÷100)      (÷10)      to GP2
          │
          └──► To Pico GP3
 
-Total: 7 × 74HC4017 decade counters in series
-Each 74HC4017 divides by 10, so 10^7 = 10,000,000
+Each 74HC390 contains two ÷10 stages (÷100 total per chip)
+4 chips: ÷100 × ÷100 × ÷100 × ÷10 = ÷10,000,000
 ```
 
 **Components:**
-- 7× 74HC4017 decade counter
+- 4× 74HC390 dual decade counter
 - Bypass capacitors (100nF per IC)
-- Output may need level shifting if not 3.3V logic
+- Output is 3.3V compatible when powered from 3.3V
 
 #### Option 2: External GPS Module
 
