@@ -93,7 +93,7 @@ const doc = new Document({
             
             new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("1.2 System Architecture")] }),
             new Paragraph({ spacing: { after: 200 },
-                children: [new TextRun("The system consists of three main subsystems: the FE-5680A rubidium oscillator providing the 10MHz reference and 1PPS timing signals, the signal conditioning circuitry that converts these signals to Pico-compatible levels, and the Pico 2-W running the CHRONOS-Rb firmware.")] }),
+                children: [new TextRun("The system consists of three main subsystems: the FE-5680A rubidium oscillator providing the 10MHz reference signal, the signal conditioning circuitry (including 1PPS generation from 10MHz or external source), and the Pico 2-W running the CHRONOS-Rb firmware.")] }),
             
             new Paragraph({ children: [new PageBreak()] }),
             
@@ -112,7 +112,7 @@ const doc = new Document({
                 ["Short-term Stability", "< 3×10⁻¹¹", "At 1 second"],
                 ["Long-term Stability", "< 5×10⁻¹²", "At 1 day"],
                 ["Aging Rate", "< 5×10⁻¹¹/month", "After 30 days"],
-                ["1PPS Output", "TTL compatible", "~100µs pulse width"],
+                ["1PPS Output", "NOT AVAILABLE", "Must be derived from 10MHz or external"],
                 ["Supply Voltage (+15V)", "15V DC", "Physics package heater"],
                 ["Supply Voltage (+5V)", "5V DC", "Electronics"],
                 ["Warmup Current", "~2A @ 15V", "First 3-5 minutes"],
@@ -121,22 +121,19 @@ const doc = new Document({
                 ["Lock Indicator", "Active LOW", "Open collector"]
             ]),
             
-            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("2.2 FE-5680A Pinout")] }),
+            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("2.2 FE-5680A Pinout (DB-9 +15V/+5V Version)")] }),
             new Paragraph({ spacing: { after: 200 },
-                children: [new TextRun("The FE-5680A uses a 15-pin D-sub connector. The following pins are used in this project:")] }),
-            
+                children: [new TextRun("This project targets the FE-5680A with DB-9 connector. Note: This version does NOT have a native 1PPS output - it must be derived from the 10MHz signal or sourced externally.")] }),
+
             createSpecTable([
                 ["Pin", "Signal", "Description"],
                 ["1", "+15V", "Main power supply input"],
                 ["2", "GND", "Ground reference"],
-                ["3", "+5V", "Logic power supply"],
-                ["4", "GND", "Ground reference"],
-                ["5", "10MHz OUT", "Sine wave output (1Vpp)"],
-                ["6", "GND", "10MHz ground reference"],
-                ["7", "1PPS OUT", "1 pulse per second output"],
-                ["8", "GND", "1PPS ground reference"],
-                ["9", "LOCK", "Lock indicator (active LOW)"],
-                ["10", "GND", "Lock indicator ground"]
+                ["3", "LOCK", "Lock indicator (4.8V=unlocked, 0.8V=locked)"],
+                ["4", "+5V", "Logic power supply"],
+                ["5", "GND", "Ground reference"],
+                ["7", "10MHz OUT", "Sine wave output (~1Vpp)"],
+                ["-", "1PPS", "NOT AVAILABLE - must be derived from 10MHz"]
             ]),
             
             new Paragraph({ children: [new PageBreak()] }),
@@ -144,7 +141,7 @@ const doc = new Document({
             // Section 3: Signal Conditioning
             new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("3. Signal Conditioning Circuit")] }),
             new Paragraph({ spacing: { after: 200 },
-                children: [new TextRun("The FE-5680A outputs a 10MHz sine wave at approximately 1Vpp, which must be converted to a 3.3V digital signal for the Pico 2-W. Additionally, the 1PPS signal may need level shifting.")] }),
+                children: [new TextRun("The FE-5680A outputs a 10MHz sine wave at approximately 1Vpp, which must be converted to a 3.3V digital signal for the Pico 2-W. The 1PPS signal must be derived from this 10MHz or sourced from an external GPS/GNSS receiver.")] }),
             
             new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("3.1 10MHz Sine to Square Converter")] }),
             new Paragraph({ spacing: { after: 200 },
@@ -179,12 +176,19 @@ const doc = new Document({
                 ["U1", "LT1016/MAX999", "High-speed comparator"]
             ]),
             
-            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("3.2 1PPS Signal Conditioning")] }),
+            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("3.2 1PPS Signal Generation")] }),
             new Paragraph({ spacing: { after: 200 },
-                children: [new TextRun("The FE-5680A 1PPS output is typically TTL-compatible (0-5V). A simple voltage divider with Schottky diode protection converts this to a Pico-safe 3.3V level.")] }),
-            
+                children: [new TextRun("IMPORTANT: Most FE-5680A units (including the DB-9 version) do NOT have a native 1PPS output. The 1PPS signal must be derived from the 10MHz reference or sourced externally.")] }),
+
+            new Paragraph({ spacing: { after: 200 },
+                children: [new TextRun("Option 1 - Derive from 10MHz: Use a chain of decade counters (e.g., 74HC4017) to divide 10MHz by 10,000,000 to generate 1PPS.")] }),
+            new Paragraph({ spacing: { after: 200 },
+                children: [new TextRun("Option 2 - External GPS: Use a GPS/GNSS receiver module (e.g., u-blox NEO series) which provides its own 1PPS output. Level shift if needed.")] }),
+
             new Paragraph({ style: "Code", spacing: { after: 200 },
                 children: [new TextRun(`
+    If using external 5V 1PPS source:
+
     1PPS ──── R4 ────┬──── D1 ────┬──── 1PPS to Pico GP2
     Input   (2.2k)   │   (BAT54)  │
                      │            │
@@ -250,9 +254,9 @@ const doc = new Document({
                 ["GPIO", "Function", "Connection"],
                 ["GP0", "UART TX", "Debug output (optional)"],
                 ["GP1", "UART RX", "Debug input (optional)"],
-                ["GP2", "1PPS Input", "From signal conditioning circuit"],
+                ["GP2", "1PPS Input", "From 10MHz divider or external GPS"],
                 ["GP3", "10MHz Input", "From comparator output"],
-                ["GP4", "Rb Lock Status", "From FE-5680A pin 9"],
+                ["GP4", "Rb Lock Status", "From FE-5680A pin 3 via NPN"],
                 ["GP5", "Rb Enable", "To FE-5680A enable (if available)"],
                 ["GP6", "LED Sync", "Green LED - synchronized"],
                 ["GP7", "LED Network", "Blue LED - WiFi connected"],
@@ -294,9 +298,9 @@ const doc = new Document({
          │                              │                              │
          ▼                              ▼                              ▼
 ┌─────────────────┐          ┌─────────────────┐          ┌─────────────────┐
-│  10MHz SIGNAL   │          │   1PPS SIGNAL   │          │  LOCK STATUS    │
-│  CONDITIONING   │          │  CONDITIONING   │          │  NPN LEVEL SHIFT│
-│                 │          │                 │          │                 │
+│  10MHz SIGNAL   │          │  1PPS SIGNAL    │          │  LOCK STATUS    │
+│  CONDITIONING   │          │ (from divider   │          │  NPN LEVEL SHIFT│
+│                 │          │  or ext GPS)    │          │                 │
 │ +3.3V──R1(10k)  │          │  1PPS──R4(2.2k) │          │ LOCK──R6(22k)──┐│
 │         │       │          │         │       │          │  Pin3          ││
 │ 10MHz───┼──R2───│          │         ├──D1───│          │         ┌──B───┤│
@@ -358,7 +362,7 @@ const doc = new Document({
                 ["1", "FE-5680A Rubidium Oscillator", "FE-5680A", "Surplus/eBay"],
                 ["1", "15V 3A DC Power Supply", "-", "Minimum 45W"],
                 ["1", "LT1016 or MAX999 Comparator", "LT1016CN8", "DIP-8 package"],
-                ["1", "15-pin D-sub connector", "-", "Male, for FE-5680A"]
+                ["1", "DB-9 D-sub connector", "-", "Male, for FE-5680A"]
             ]),
             
             new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("6.2 Signal Conditioning Components")] }),
@@ -366,8 +370,8 @@ const doc = new Document({
                 ["Qty", "Description", "Value", "Notes"],
                 ["2", "Resistor", "10kΩ 1%", "For comparator"],
                 ["1", "Resistor", "100Ω 1%", "Input series"],
-                ["1", "Resistor", "2.2kΩ", "1PPS divider"],
-                ["1", "Resistor", "3.3kΩ", "1PPS divider"],
+                ["1", "Resistor", "2.2kΩ", "1PPS level shift (if ext 5V source)"],
+                ["1", "Resistor", "3.3kΩ", "1PPS level shift (if ext 5V source)"],
                 ["4", "Resistor", "330Ω", "LED current limit"],
                 ["1", "Capacitor", "100nF ceramic", "AC coupling"],
                 ["1", "Capacitor", "100µF electrolytic", "Power filter"],
@@ -410,7 +414,7 @@ const doc = new Document({
             new Paragraph({ numbering: { reference: "numbered-list", level: 0 },
                 children: [new TextRun("Add bypass capacitors (100nF) close to the comparator power pins")] }),
             new Paragraph({ numbering: { reference: "numbered-list", level: 0 },
-                children: [new TextRun("Build the 1PPS voltage divider circuit")] }),
+                children: [new TextRun("Build the 1PPS level shifter circuit (if using external 5V source)")] }),
             new Paragraph({ numbering: { reference: "numbered-list", level: 0 },
                 children: [new TextRun("Add the lock status level shifter")] }),
             new Paragraph({ numbering: { reference: "numbered-list", level: 0 },
@@ -424,7 +428,7 @@ const doc = new Document({
             new Paragraph({ numbering: { reference: "numbered-list", level: 0 },
                 children: [new TextRun("Verify 10MHz output with oscilloscope (~1Vpp sine wave)")] }),
             new Paragraph({ numbering: { reference: "numbered-list", level: 0 },
-                children: [new TextRun("Verify 1PPS output (pulse once per second)")] }),
+                children: [new TextRun("Verify 1PPS signal from divider or external source (pulse once per second)")] }),
             new Paragraph({ numbering: { reference: "numbered-list", level: 0 },
                 children: [new TextRun("Verify lock indicator goes LOW when locked (~3-5 min)")] }),
             new Paragraph({ numbering: { reference: "numbered-list", level: 0 },
@@ -554,7 +558,7 @@ sudo sntp -sS 192.168.1.100`)] }),
                 ["No 10MHz signal", "FE-5680A not powered", "Check +15V and +5V connections"],
                 ["Rb won't lock", "Insufficient warmup", "Wait 5+ minutes after power-on"],
                 ["Rb won't lock", "Physics package fault", "Check for error codes, may need service"],
-                ["No 1PPS output", "Not locked yet", "Wait for lock indicator"],
+                ["No 1PPS signal", "Divider/GPS not connected", "Check 1PPS source circuit"],
                 ["Pico not booting", "Power issue", "Check VSYS voltage (3.3-5.5V)"],
                 ["WiFi won't connect", "Wrong credentials", "Check SSID/password in config"],
                 ["WiFi won't connect", "Wrong country code", "Set correct WIFI_COUNTRY"],

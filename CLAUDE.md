@@ -70,20 +70,28 @@ The core architecture implements a closed-loop control system that disciplines t
 ### Signal Flow
 
 ```
-FE-5680A (10MHz + 1PPS)
-    → Signal Conditioning (comparator + level shifter)
-    → Pico GPIO (GP2=PPS, GP3=10MHz, GP4=Lock)
+FE-5680A (10MHz + Lock Status)
+    → Signal Conditioning (comparator + NPN level shifter)
+    → Pico GPIO (GP3=10MHz, GP4=Lock)
+
+1PPS Source (from 10MHz divider or external GPS)
+    → Level Shifter (if needed)
+    → Pico GPIO (GP2=PPS)
     → PIO Hardware Capture
     → Time Discipline Algorithm
     → System Clock Adjustment
     → NTP/PTP/GPIO Outputs
 ```
 
+Note: Most FE-5680A units do NOT have a native 1PPS output. The 1PPS signal must be
+derived from the 10MHz reference using a divide-by-10M circuit, or sourced externally
+(e.g., from a GPS/GNSS receiver).
+
 ### Hardware Interface (GPIO Mapping)
 
 Critical pins defined in `chronos_rb.h`:
-- **GP2**: 1PPS input (PIO capture)
-- **GP3**: 10MHz input (frequency counter)
+- **GP2**: 1PPS input (PIO capture) - from 10MHz divider or external source
+- **GP3**: 10MHz input (frequency counter) - from FE-5680A via comparator
 - **GP4**: Rubidium lock status (HIGH=locked, via NPN level shifter from FE-5680A pin 3)
 - **GP6-9**: Status LEDs (sync/network/activity/error)
 - **GP14-18**: Interval pulse outputs (0.5s/1s/6s/30s/60s)
@@ -119,9 +127,12 @@ The firmware expects specific signal conditioning between FE-5680A and Pico:
 
 1. **10MHz Conversion**: FE-5680A outputs 1Vpp sine wave. Must be converted to 3.3V LVCMOS square wave using high-speed comparator (LT1016 or MAX999) before connecting to GP3.
 
-2. **1PPS Level Shift**: FE-5680A outputs 5V TTL. Requires resistive divider with Schottky diode protection to bring to 3.3V before GP2.
+2. **1PPS Source**: Most FE-5680A units do NOT have a native 1PPS output. Options:
+   - Derive from 10MHz using divide-by-10M circuit (e.g., 74HC4017 decade counter chain)
+   - Use external GPS/GNSS receiver 1PPS output
+   - Level shift to 3.3V if source is 5V TTL
 
-3. **Lock Status**: Direct connection with appropriate current limiting. Active low signal.
+3. **Lock Status**: FE-5680A pin 3 outputs 4.8V (unlocked) / 0.8V (locked). Uses NPN transistor level shifter (2N3904) to convert to 3.3V logic with inverted polarity (GPIO HIGH = locked).
 
 See `docs/CHRONOS-Rb_Hardware_Guide.docx` for complete schematics with component values.
 

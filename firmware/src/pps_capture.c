@@ -1,9 +1,12 @@
 /**
  * CHRONOS-Rb PPS Capture Module
- * 
- * Captures the 1PPS signal from the FE-5680A rubidium oscillator with
- * sub-microsecond precision using the RP2350's PIO.
- * 
+ *
+ * Captures the 1PPS timing reference signal with sub-microsecond precision
+ * using the RP2350's PIO. The 1PPS signal is derived from the FE-5680A 10MHz
+ * output via a divide-by-10M circuit, or from an external GPS/GNSS receiver.
+ *
+ * Note: Most FE-5680A units do NOT have a native 1PPS output - only 10MHz.
+ *
  * Copyright (c) 2025 - Open Source Hardware Project
  * License: MIT
  */

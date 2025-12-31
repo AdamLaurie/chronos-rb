@@ -83,7 +83,7 @@ The project is configured with design rules suitable for JLCPCB manufacturing:
 
 | Signal | Description | Level |
 |--------|-------------|-------|
-| PPS_IN | 1PPS from FE-5680A | 3.3V (level shifted from 5V) |
+| PPS_IN | 1PPS from divider or external GPS | 3.3V (level shifted if needed) |
 | CLK_10MHZ | 10MHz reference | 3.3V LVCMOS (from 1Vpp sine) |
 | RB_LOCK | Rubidium lock status | Active low, 3.3V |
 

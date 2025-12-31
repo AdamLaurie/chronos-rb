@@ -28,7 +28,8 @@
  * GPIO PIN DEFINITIONS - Raspberry Pi Pico 2-W
  *============================================================================*/
 
-/* 1PPS Input from FE-5680A (active high, ~100µs pulse width) */
+/* 1PPS Input - derived from 10MHz or external source (active high, ~100µs pulse width) */
+/* Note: Most FE-5680A units do NOT have native 1PPS - must be derived from 10MHz */
 #define GPIO_PPS_INPUT          2       /* GP2 - PIO capture input */
 
 /* 10MHz Reference Input (after comparator, 3.3V LVCMOS) */

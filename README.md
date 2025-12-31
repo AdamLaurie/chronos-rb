@@ -36,7 +36,7 @@ A Stratum-1 NTP/PTP time server for Raspberry Pi Pico 2-W, disciplined by an FE-
 ### Main Components
 
 1. **Raspberry Pi Pico 2-W** - RP2350 with WiFi
-2. **FE-5680A Rubidium Oscillator** - 10MHz + 1PPS outputs
+2. **FE-5680A Rubidium Oscillator** - 10MHz output (1PPS derived from divider or external)
 3. **15V 3A Power Supply** - For rubidium physics package
 4. **LT1016 or MAX999 Comparator** - 10MHz sine-to-square conversion
 5. **Signal Conditioning Components** - See BOM in documentation
@@ -50,11 +50,12 @@ A Stratum-1 NTP/PTP time server for Raspberry Pi Pico 2-W, disciplined by an FE-
 │   Oscillator    │     │ Circuit          │     │                 │
 └─────────────────┘     └──────────────────┘     └────────┬────────┘
        │                                                   │
+       │                                                   │
        │ 10MHz Sine                                       │ WiFi
-       │ 1PPS TTL                                         ▼
-       │ Lock Status                              ┌───────────────┐
-       │                                          │ NTP/PTP       │
-       └──────────────────────────────────────────│ Clients       │
+       │ Lock Status                                      ▼
+       │                                          ┌───────────────┐
+       └──────────────────────────────────────────│ NTP/PTP       │
+                                                  │ Clients       │
                                                   └───────────────┘
 ```
 
@@ -119,7 +120,7 @@ See the Hardware Guide document for complete schematics. Key connections:
 
 | Pico GPIO | Signal | Source |
 |-----------|--------|--------|
-| GP2 | 1PPS Input | FE-5680A via level shifter |
+| GP2 | 1PPS Input | From 10MHz divider or external GPS |
 | GP3 | 10MHz Input | FE-5680A via comparator |
 | GP4 | Lock Status | FE-5680A pin 3 via NPN level shifter |
 | GP6-9 | Status LEDs | With 330Ω resistors |

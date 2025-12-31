@@ -10,19 +10,19 @@
   <text x="130" y="105" text-anchor="middle" font-family="Arial" font-size="14" fill="#c2185b" font-weight="bold">FE-5680A</text>
   <text x="130" y="122" text-anchor="middle" font-family="Arial" font-size="11" fill="#333">Rubidium Oscillator</text>
   
-  <!-- FE-5680A Pins -->
+  <!-- FE-5680A Pins (DB-9 version) -->
   <text x="45" y="155" font-family="Arial" font-size="10" fill="#333" font-weight="bold">Pin 1:</text>
   <text x="90" y="155" font-family="Arial" font-size="10" fill="#e94560">+15V Input</text>
   <text x="45" y="172" font-family="Arial" font-size="10" fill="#333" font-weight="bold">Pin 3:</text>
-  <text x="90" y="172" font-family="Arial" font-size="10" fill="#4caf50">+5V Input</text>
-  <text x="45" y="189" font-family="Arial" font-size="10" fill="#333" font-weight="bold">Pin 5:</text>
-  <text x="90" y="189" font-family="Arial" font-size="10" fill="#2196f3">10MHz Out</text>
+  <text x="90" y="172" font-family="Arial" font-size="10" fill="#9c27b0">Lock Status</text>
+  <text x="45" y="189" font-family="Arial" font-size="10" fill="#333" font-weight="bold">Pin 4:</text>
+  <text x="90" y="189" font-family="Arial" font-size="10" fill="#4caf50">+5V Input</text>
   <text x="45" y="206" font-family="Arial" font-size="10" fill="#333" font-weight="bold">Pin 7:</text>
-  <text x="90" y="206" font-family="Arial" font-size="10" fill="#ff9800">1PPS Out</text>
-  <text x="45" y="223" font-family="Arial" font-size="10" fill="#333" font-weight="bold">Pin 9:</text>
-  <text x="90" y="223" font-family="Arial" font-size="10" fill="#9c27b0">Lock Status</text>
-  <text x="45" y="240" font-family="Arial" font-size="10" fill="#333" font-weight="bold">Pin 2,4,6,8:</text>
-  <text x="120" y="240" font-family="Arial" font-size="10" fill="#333">GND</text>
+  <text x="90" y="206" font-family="Arial" font-size="10" fill="#2196f3">10MHz Out</text>
+  <text x="45" y="223" font-family="Arial" font-size="10" fill="#333" font-weight="bold">1PPS:</text>
+  <text x="90" y="223" font-family="Arial" font-size="10" fill="#ff9800">From divider</text>
+  <text x="45" y="240" font-family="Arial" font-size="10" fill="#333" font-weight="bold">Pin 2,5:</text>
+  <text x="95" y="240" font-family="Arial" font-size="10" fill="#333">GND</text>
   
   <!-- Output indicators on FE-5680A -->
   <circle cx="215" cy="185" r="6" fill="#2196f3"/>
@@ -39,17 +39,17 @@
   <text x="370" y="193" text-anchor="middle" font-family="Arial" font-size="9" fill="#333">LT1016/MAX999</text>
   <text x="370" y="208" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">Sine → Square</text>
   
-  <!-- 1PPS Level Shifter sub-box -->
+  <!-- 1PPS Source sub-box -->
   <rect x="295" y="225" width="150" height="55" fill="#ffe0b2" stroke="#f57c00" stroke-width="1" rx="5"/>
-  <text x="370" y="243" text-anchor="middle" font-family="Arial" font-size="10" fill="#e65100" font-weight="bold">1PPS Level Shifter</text>
-  <text x="370" y="258" text-anchor="middle" font-family="Arial" font-size="9" fill="#333">R divider + BAT54</text>
-  <text x="370" y="273" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">5V → 3.3V</text>
+  <text x="370" y="243" text-anchor="middle" font-family="Arial" font-size="10" fill="#e65100" font-weight="bold">1PPS Source</text>
+  <text x="370" y="258" text-anchor="middle" font-family="Arial" font-size="9" fill="#333">From 10MHz divider</text>
+  <text x="370" y="273" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">or external GPS</text>
   
   <!-- Lock Status sub-box -->
   <rect x="295" y="290" width="150" height="55" fill="#e1bee7" stroke="#8e24aa" stroke-width="1" rx="5"/>
   <text x="370" y="308" text-anchor="middle" font-family="Arial" font-size="10" fill="#7b1fa2" font-weight="bold">Lock Level Shifter</text>
-  <text x="370" y="323" text-anchor="middle" font-family="Arial" font-size="9" fill="#333">Pull-up + Divider</text>
-  <text x="370" y="338" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">Active LOW</text>
+  <text x="370" y="323" text-anchor="middle" font-family="Arial" font-size="9" fill="#333">NPN (2N3904)</text>
+  <text x="370" y="338" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">HIGH=locked</text>
   
   <!-- Lines from FE-5680A to Signal Conditioning -->
   <line x1="221" y1="185" x2="295" y2="185" stroke="#2196f3" stroke-width="2"/>

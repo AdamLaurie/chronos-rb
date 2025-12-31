@@ -85,21 +85,21 @@ const doc = new Document({
             new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("2. FE-5680A Rubidium Oscillator")] }),
             new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The FE-5680A is a compact rubidium atomic frequency standard originally designed for telecommunications. It provides an extremely stable 10MHz output signal locked to the hyperfine transition of rubidium-87 atoms.")] }),
             new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("2.1 Specifications")] }),
-            createSpecTable([["Parameter", "Value", "Notes"], ["Output Frequency", "10 MHz", "Sine wave"], ["Output Level", "~1 Vpp", "Into 50Ω"], ["Short-term Stability", "< 3×10⁻¹¹", "At 1 second"], ["Long-term Stability", "< 5×10⁻¹²", "At 1 day"], ["1PPS Output", "TTL compatible", "~100µs pulse"], ["Supply (+15V)", "15V DC", "Physics heater"], ["Supply (+5V)", "5V DC", "Electronics"], ["Warmup Current", "~2A @ 15V", "First 3-5 min"], ["Operating Current", "~0.7A @ 15V", "After warmup"], ["Warmup Time", "3-5 minutes", "To lock"], ["Lock Indicator", "Active LOW", "Open collector"]]),
+            createSpecTable([["Parameter", "Value", "Notes"], ["Output Frequency", "10 MHz", "Sine wave"], ["Output Level", "~1 Vpp", "Into 50Ω"], ["Short-term Stability", "< 3×10⁻¹¹", "At 1 second"], ["Long-term Stability", "< 5×10⁻¹²", "At 1 day"], ["1PPS Output", "NOT AVAILABLE", "Derive from 10MHz"], ["Supply (+15V)", "15V DC", "Physics heater"], ["Supply (+5V)", "5V DC", "Electronics"], ["Warmup Current", "~2A @ 15V", "First 3-5 min"], ["Operating Current", "~0.7A @ 15V", "After warmup"], ["Warmup Time", "3-5 minutes", "To lock"], ["Lock Indicator", "Active LOW", "Open collector"]]),
             new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300 }, children: [new TextRun("2.2 FE-5680A Pinout")] }),
-            createSpecTable([["Pin", "Signal", "Description"], ["1", "+15V", "Main power input"], ["2", "GND", "Ground"], ["3", "+5V", "Logic power"], ["5", "10MHz OUT", "Sine wave (1Vpp)"], ["7", "1PPS OUT", "Pulse per second"], ["9", "LOCK", "Lock status (active LOW)"]]),
+            createSpecTable([["Pin", "Signal", "Description"], ["1", "+15V", "Main power input"], ["2", "GND", "Ground"], ["3", "LOCK", "Lock status (4.8V/0.8V)"], ["4", "+5V", "Logic power"], ["5", "GND", "Ground"], ["7", "10MHz OUT", "Sine wave (~1Vpp)"], ["-", "1PPS", "NOT AVAILABLE - derive from 10MHz"]]),
             new Paragraph({ children: [new PageBreak()] }),
             
             // Section 3
             new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("3. Signal Conditioning Circuit")] }),
-            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The FE-5680A outputs a 10MHz sine wave at approximately 1Vpp, which must be converted to a 3.3V digital signal for the Pico 2-W. The 1PPS signal also needs level shifting from 5V TTL to 3.3V LVCMOS.")] }),
+            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The FE-5680A outputs a 10MHz sine wave at approximately 1Vpp, which must be converted to a 3.3V digital signal for the Pico 2-W. Note: Most FE-5680A units do NOT have a native 1PPS output - it must be derived from the 10MHz or sourced externally.")] }),
             new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("3.1 10MHz Sine to Square Converter")] }),
             new Paragraph({ spacing: { after: 200 }, children: [new TextRun("A high-speed comparator converts the 10MHz sine wave to a clean 3.3V square wave. The LT1016 or MAX999 are recommended for their fast propagation delay (<10ns).")] }),
             new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new ImageRun({ type: "png", data: img10MHz, transformation: { width: 500, height: 316 }, altText: { title: "10MHz Comparator", description: "Sine to square converter", name: "10MHz" } })] }),
             new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The circuit uses AC coupling (C1) to remove DC offset. R3 sets the threshold at ~1.65V. R1 provides pull-up for the open-drain output.")] }),
             
-            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("3.2 1PPS Level Shifter")] }),
-            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("A simple voltage divider converts the 5V TTL 1PPS signal to 3.3V, with a Schottky diode for ESD protection.")] }),
+            new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("3.2 1PPS Signal (from divider or external)")] }),
+            new Paragraph({ spacing: { after: 200 }, children: [new TextRun("Since most FE-5680A units don't have native 1PPS, derive it from 10MHz or use external GPS. If using a 5V external source, a voltage divider with Schottky diode provides level shifting and ESD protection.")] }),
             new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new ImageRun({ type: "png", data: img1PPS, transformation: { width: 420, height: 252 }, altText: { title: "1PPS Level Shifter", description: "5V to 3.3V divider", name: "1PPS" } })] }),
             new Paragraph({ children: [new PageBreak()] }),
             

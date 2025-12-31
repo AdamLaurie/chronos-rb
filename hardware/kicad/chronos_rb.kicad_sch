@@ -201,7 +201,7 @@
 		)
 		(uuid "a1b2c3d4-0007-0007-0007-000000000007")
 	)
-	(text "PPS_IN - 1PPS from FE-5680A (5V TTL -> 3.3V level shifted)"
+	(text "PPS_IN - 1PPS from divider or external GPS (level shifted if 5V)"
 		(exclude_from_sim no)
 		(at 25.4 106.68 0)
 		(effects
