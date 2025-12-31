@@ -105,7 +105,7 @@ const doc = new Document({
 
             new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("3.3 Lock Status Level Shifter")] }),
             new Paragraph({ spacing: { after: 200 }, children: [new TextRun("The FE-5680A lock output (Pin 3) is 4.8V when unlocked and 0.8V when locked. An NPN transistor (2N3904) inverts and level-shifts this signal to 3.3V logic, where HIGH indicates locked status.")] }),
-            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new ImageRun({ type: "png", data: imgLock, transformation: { width: 468, height: 288 }, altText: { title: "Lock Detector", description: "NPN level shifter for lock status", name: "Lock" } })] }),
+            new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new ImageRun({ type: "png", data: imgLock, transformation: { width: 468, height: 360 }, altText: { title: "Lock Detector", description: "NPN level shifter for lock status with LEDs", name: "Lock" } })] }),
             new Paragraph({ children: [new PageBreak()] }),
 
             // Section 4

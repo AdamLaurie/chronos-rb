@@ -290,19 +290,18 @@ The FE-5680A lock output (Pin 3) is 4.8V when unlocked, 0.8V when locked. An NPN
 
 ```
 FE-5680A                                            To Pico
-Pin 3 ────── R6 ──────┬─────── B ┌───┐ C ─────────── GP4
-(Lock)      (22k)     │         │ Q1 │              (HIGH = locked)
-                      │         │2N3904
-                 R7 ──┴── GND   └─┬─┘ E
-                (10k)              │
-                                  GND
-
-            +3.3V ─── R8 ─────────┘
-                     (10k)        (pull-up on collector)
+Pin 3 ────── R6 ──────┬─────── B ┌───┐ C ───┬─────── GP4
+(Lock)      (22k)     │         │ Q1 │      │       (HIGH = locked)
+                      │         │2N3904     │
+                 R7 ──┴── GND   └─┬─┘ E     ├── R9 ── GREEN LED ── GND
+                (10k)              │         │   (330Ω)  (locked)
+                                  GND        │
+            +3.3V ─── R8 ─────────┘          └── R10 ── RED LED ── +3.3V
+                     (10k)                       (330Ω)  (unlocked)
 
 Operation:
-- Unlocked (4.8V): Q1 ON  → collector LOW  → GP4 = LOW
-- Locked (0.8V):   Q1 OFF → collector HIGH → GP4 = HIGH
+- Unlocked (4.8V): Q1 ON  → collector LOW  → RED on,  GREEN off
+- Locked (0.8V):   Q1 OFF → collector HIGH → RED off, GREEN on
 ```
 
 **Components:**
@@ -310,6 +309,10 @@ Operation:
 - R6: 22kΩ (base input)
 - R7: 10kΩ (base to GND)
 - R8: 10kΩ (collector pull-up to 3.3V)
+- R9: 330Ω (green LED current limit)
+- R10: 330Ω (red LED current limit)
+- 1× Green LED (indicates locked)
+- 1× Red LED (indicates unlocked/warmup)
 
 ## ⏱️ Interval Pulse Outputs
 
