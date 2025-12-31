@@ -36,10 +36,11 @@ A Stratum-1 NTP/PTP time server for Raspberry Pi Pico 2-W, disciplined by an FE-
 ### Main Components
 
 1. **Raspberry Pi Pico 2-W** - RP2350 with WiFi
-2. **FE-5680A Rubidium Oscillator** - 10MHz output (1PPS derived from divider or external)
-3. **15V 3A Power Supply** - For rubidium physics package
-4. **LT1016 or MAX999 Comparator** - 10MHz sine-to-square conversion
-5. **Signal Conditioning Components** - See BOM in documentation
+2. **FE-5680A Rubidium Oscillator** - 10MHz output (DB-9 version)
+3. **1PPS Source** - Either 7× 74HC4017 divider chain OR GPS module (see Signal Conditioning)
+4. **15V 3A Power Supply** - For rubidium physics package
+5. **LT1016 or MAX999 Comparator** - 10MHz sine-to-square conversion
+6. **Signal Conditioning Components** - See BOM in documentation
 
 ### Block Diagram
 
@@ -241,17 +242,74 @@ Sine    │  (100)  │      LT1016
             GND  GND
 ```
 
-### 1PPS Level Shifter
+### 1PPS Generation (Required)
+
+**The FE-5680A DB-9 version does NOT have a 1PPS output.** You must generate it using one of these methods:
+
+#### Option 1: Divide 10MHz (Recommended)
+
+Use cascaded decade counters to divide 10MHz by 10,000,000:
 
 ```
-1PPS ──── R4 ────┬──── D1 ────┬──── To Pico GP2
-(5V)    (2.2k)   │   (BAT54)  │
-                 │            │
-                 R5          GND
-                (3.3k)
-                 │
-                GND
+10MHz ───┬──► 74HC4017 ──► 74HC4017 ──► 74HC4017 ──► ... ──► 1PPS
+Square   │    (÷10)        (÷10)        (÷10)         (×7)
+         │
+         └──► To Pico GP3
+
+Total: 7 × 74HC4017 decade counters in series
+Each 74HC4017 divides by 10, so 10^7 = 10,000,000
 ```
+
+**Components:**
+- 7× 74HC4017 decade counter
+- Bypass capacitors (100nF per IC)
+- Output may need level shifting if not 3.3V logic
+
+#### Option 2: External GPS Module
+
+Use a GPS/GNSS module with 1PPS output (e.g., u-blox NEO-6M/7M/8M):
+
+```
+GPS Module
+1PPS Out ──── R4 ────┬──── D1 ────┬──── To Pico GP2
+(3.3-5V)    (2.2k)   │   (BAT54)  │
+                     │            │
+                     R5          GND
+                    (3.3k)
+                     │
+                    GND
+
+(Level shifter only needed if GPS outputs 5V)
+```
+
+This also provides a GPS time reference for initial time-of-day setting.
+
+### Lock Status Level Shifter
+
+The FE-5680A lock output (Pin 3) is 4.8V when unlocked, 0.8V when locked. An NPN transistor inverts and level-shifts this to 3.3V logic:
+
+```
+FE-5680A                                            To Pico
+Pin 3 ────── R6 ──────┬─────── B ┌───┐ C ─────────── GP4
+(Lock)      (22k)     │         │ Q1 │              (HIGH = locked)
+                      │         │2N3904
+                 R7 ──┴── GND   └─┬─┘ E
+                (10k)              │
+                                  GND
+
+            +3.3V ─── R8 ─────────┘
+                     (10k)        (pull-up on collector)
+
+Operation:
+- Unlocked (4.8V): Q1 ON  → collector LOW  → GP4 = LOW
+- Locked (0.8V):   Q1 OFF → collector HIGH → GP4 = HIGH
+```
+
+**Components:**
+- 1× 2N3904 NPN transistor
+- R6: 22kΩ (base input)
+- R7: 10kΩ (base to GND)
+- R8: 10kΩ (collector pull-up to 3.3V)
 
 ## ⏱️ Interval Pulse Outputs
 
