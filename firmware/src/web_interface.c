@@ -18,6 +18,7 @@
 #include "ac_freq_monitor.h"
 #include "pulse_output.h"
 #include "cli.h"
+#include "ota_update.h"
 
 /*============================================================================
  * HTTP CONSTANTS
@@ -47,6 +48,18 @@
 #define HTTP_REDIRECT_RESPONSE \
     "HTTP/1.1 303 See Other\r\n" \
     "Location: /config\r\n" \
+    "Connection: close\r\n" \
+    "\r\n"
+
+#define HTTP_OK_TEXT \
+    "HTTP/1.1 200 OK\r\n" \
+    "Content-Type: text/plain\r\n" \
+    "Connection: close\r\n" \
+    "\r\n"
+
+#define HTTP_400_RESPONSE \
+    "HTTP/1.1 400 Bad Request\r\n" \
+    "Content-Type: text/plain\r\n" \
     "Connection: close\r\n" \
     "\r\n"
 
@@ -232,6 +245,107 @@ static const char CONFIG_PAGE[] =
 "</div>"
 "<footer>CHRONOS-Rb v%s</footer>"
 "</div>"
+"</body></html>";
+
+static const char OTA_PAGE[] =
+"<!DOCTYPE html>"
+"<html><head>"
+"<title>CHRONOS-Rb OTA Update</title>"
+"<meta name='viewport' content='width=device-width,initial-scale=1'>"
+"<style>"
+"*{box-sizing:border-box;margin:0;padding:0}"
+"body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
+"background:linear-gradient(135deg,#1a1a2e 0%%,#16213e 100%%);color:#eee;min-height:100vh;padding:20px}"
+".container{max-width:600px;margin:0 auto}"
+"h1{text-align:center;margin-bottom:30px;font-size:1.8em;"
+"background:linear-gradient(90deg,#e94560,#0f3460);-webkit-background-clip:text;"
+"-webkit-text-fill-color:transparent}"
+".card{background:rgba(255,255,255,0.05);border-radius:15px;padding:20px;margin-bottom:20px;"
+"backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1)}"
+".card h2{color:#e94560;margin-bottom:15px;font-size:1.1em}"
+".nav{text-align:center;margin-bottom:20px}"
+".nav a{color:#e94560;text-decoration:none;margin:0 15px}"
+".stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.1)}"
+".stat:last-child{border-bottom:none}"
+".stat-label{color:#aaa;font-size:0.9em}"
+".stat-value{font-family:'Courier New',monospace;font-size:0.9em}"
+"input[type=file]{width:100%%;padding:10px;margin-bottom:15px;background:rgba(255,255,255,0.1);"
+"border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff}"
+"button{background:linear-gradient(90deg,#e94560,#0f3460);color:#fff;border:none;"
+"padding:12px 30px;border-radius:8px;cursor:pointer;font-size:1em;width:100%%}"
+"button:hover{opacity:0.9}"
+"button:disabled{opacity:0.5;cursor:not-allowed}"
+".progress{width:100%%;height:20px;background:rgba(255,255,255,0.1);border-radius:10px;overflow:hidden;margin:15px 0}"
+".progress-bar{height:100%%;background:linear-gradient(90deg,#4ade80,#22c55e);width:0%%;transition:width 0.3s}"
+".msg{padding:10px;border-radius:8px;margin:15px 0;text-align:center}"
+".msg-ok{background:rgba(74,222,128,0.2);color:#4ade80}"
+".msg-err{background:rgba(248,113,113,0.2);color:#f87171}"
+".msg-warn{background:rgba(251,191,36,0.2);color:#fbbf24}"
+"#status{font-family:'Courier New',monospace}"
+"footer{text-align:center;margin-top:30px;color:#666;font-size:0.9em}"
+"</style>"
+"</head><body>"
+"<div class='container'>"
+"<h1>Firmware Update</h1>"
+"<div class='nav'><a href='/'>Status</a><a href='/config'>Config</a><a href='/ota'>OTA</a></div>"
+"%s"
+"<div class='card'>"
+"<h2>Current Firmware</h2>"
+"<div class='stat'><span class='stat-label'>Version</span><span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>Build Date</span><span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>OTA State</span><span class='stat-value'>%s</span></div>"
+"</div>"
+"<div class='card'>"
+"<h2>Upload Firmware</h2>"
+"<p style='color:#aaa;font-size:0.9em;margin-bottom:15px'>Select the encrypted FOTA image file (*_fota_image_encrypted.bin)</p>"
+"<input type='file' id='firmware' accept='.bin'>"
+"<div class='progress'><div class='progress-bar' id='progressBar'></div></div>"
+"<div id='status'></div>"
+"<button id='uploadBtn' onclick='uploadFirmware()'>Upload Firmware</button>"
+"</div>"
+"<div class='card' id='applyCard' style='display:none'>"
+"<h2>Apply Update</h2>"
+"<p style='color:#aaa;font-size:0.9em;margin-bottom:15px'>Firmware verified successfully. Click to apply and reboot.</p>"
+"<button onclick='applyUpdate()' style='background:linear-gradient(90deg,#22c55e,#16a34a)'>Apply & Reboot</button>"
+"</div>"
+"<footer>CHRONOS-Rb v%s</footer>"
+"</div>"
+"<script>"
+"async function uploadFirmware(){"
+"const f=document.getElementById('firmware').files[0];"
+"if(!f){alert('Select a file');return;}"
+"const btn=document.getElementById('uploadBtn');"
+"const bar=document.getElementById('progressBar');"
+"const stat=document.getElementById('status');"
+"btn.disabled=true;bar.style.width='0%%';"
+"stat.textContent='Initializing...';"
+"try{"
+"let r=await fetch('/api/ota/begin',{method:'POST',headers:{'X-OTA-Size':f.size}});"
+"if(!r.ok)throw new Error(await r.text());"
+"const chunk=1024;let sent=0;"
+"while(sent<f.size){"
+"const end=Math.min(sent+chunk,f.size);"
+"const blob=f.slice(sent,end);"
+"const data=await blob.arrayBuffer();"
+"r=await fetch('/api/ota/chunk',{method:'POST',body:new Uint8Array(data),"
+"headers:{'Content-Type':'application/octet-stream'}});"
+"if(!r.ok)throw new Error(await r.text());"
+"sent=end;bar.style.width=(sent*100/f.size)+'%%';"
+"stat.textContent='Uploading... '+(sent*100/f.size).toFixed(1)+'%%';}"
+"stat.textContent='Validating...';"
+"r=await fetch('/api/ota/finish',{method:'POST'});"
+"if(!r.ok)throw new Error(await r.text());"
+"bar.style.width='100%%';"
+"stat.innerHTML='<span class=\"msg msg-ok\">Upload complete! Ready to apply.</span>';"
+"document.getElementById('applyCard').style.display='block';"
+"}catch(e){stat.innerHTML='<span class=\"msg msg-err\">Error: '+e.message+'</span>';}"
+"btn.disabled=false;}"
+"async function applyUpdate(){"
+"if(!confirm('Apply update and reboot now?'))return;"
+"document.getElementById('status').innerHTML='<span class=\"msg msg-warn\">Rebooting...</span>';"
+"await fetch('/api/ota/apply',{method:'POST'});"
+"setTimeout(()=>location.reload(),5000);}"
+"</script>"
 "</body></html>";
 
 /*============================================================================
@@ -553,6 +667,54 @@ static int generate_config_page(char *buf, size_t len, const char *message, cons
 }
 
 /**
+ * Generate OTA update page HTML
+ */
+static int generate_ota_page(char *buf, size_t len, const char *message) {
+    const ota_status_t *ota = ota_get_status();
+    const char *status_msg = "";
+
+    /* Check for update/rollback messages */
+    if (ota->is_after_rollback) {
+        status_msg = "<div class='msg msg-err'>Rollback occurred - previous update failed!</div>";
+    } else if (ota->is_after_update) {
+        status_msg = "<div class='msg msg-ok'>Firmware updated successfully!</div>";
+    }
+
+    return snprintf(buf, len, OTA_PAGE,
+        message ? message : status_msg,
+        CHRONOS_VERSION_STRING,
+        CHRONOS_BUILD_DATE,
+        ota_state_str(ota->state),
+        CHRONOS_VERSION_STRING
+    );
+}
+
+/**
+ * Parse HTTP header value
+ */
+static bool parse_http_header(const char *request, const char *header, char *value, size_t max_len) {
+    char search[64];
+    snprintf(search, sizeof(search), "%s:", header);
+
+    const char *start = strstr(request, search);
+    if (!start) {
+        value[0] = '\0';
+        return false;
+    }
+
+    start += strlen(search);
+    while (*start == ' ') start++;  /* Skip whitespace */
+
+    const char *end = strstr(start, "\r\n");
+    size_t len = end ? (size_t)(end - start) : strlen(start);
+    if (len >= max_len) len = max_len - 1;
+
+    strncpy(value, start, len);
+    value[len] = '\0';
+    return true;
+}
+
+/**
  * URL decode a string in place
  */
 static void url_decode(char *str) {
@@ -711,6 +873,75 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
         /* Status page */
         generate_status_page(html_buf, sizeof(html_buf));
         snprintf(response, sizeof(response), "%s%s", HTTP_RESPONSE_HEADER, html_buf);
+
+    } else if (strstr(request, "GET /ota") != NULL) {
+        /* OTA update page */
+        generate_ota_page(html_buf, sizeof(html_buf), NULL);
+        snprintf(response, sizeof(response), "%s%s", HTTP_RESPONSE_HEADER, html_buf);
+
+    } else if (is_post && strstr(request, "/api/ota/begin") != NULL) {
+        /* OTA begin - parse size from header */
+        char size_str[16];
+        if (parse_http_header(request, "X-OTA-Size", size_str, sizeof(size_str))) {
+            size_t fw_size = (size_t)atoi(size_str);
+            ota_error_t err = ota_begin(fw_size, 0);
+            if (err == OTA_OK) {
+                snprintf(response, sizeof(response), "%sOK", HTTP_OK_TEXT);
+            } else {
+                snprintf(response, sizeof(response), "%s%s", HTTP_400_RESPONSE, ota_error_str(err));
+            }
+        } else {
+            snprintf(response, sizeof(response), "%sMissing X-OTA-Size header", HTTP_400_RESPONSE);
+        }
+
+    } else if (is_post && strstr(request, "/api/ota/chunk") != NULL) {
+        /* OTA chunk - write binary data */
+        const char *body = strstr(request, "\r\n\r\n");
+        if (body) {
+            body += 4;
+            /* Calculate body length from total request */
+            size_t body_len = copy_len - (body - request);
+            ota_error_t err = ota_write_chunk((const uint8_t *)body, body_len);
+            if (err == OTA_OK) {
+                snprintf(response, sizeof(response), "%sOK", HTTP_OK_TEXT);
+            } else {
+                snprintf(response, sizeof(response), "%s%s", HTTP_400_RESPONSE, ota_error_str(err));
+            }
+        } else {
+            snprintf(response, sizeof(response), "%sNo body", HTTP_400_RESPONSE);
+        }
+
+    } else if (is_post && strstr(request, "/api/ota/finish") != NULL) {
+        /* OTA finish - validate and mark ready */
+        ota_error_t err = ota_finish();
+        if (err == OTA_OK) {
+            snprintf(response, sizeof(response), "%sOK", HTTP_OK_TEXT);
+        } else {
+            snprintf(response, sizeof(response), "%s%s", HTTP_400_RESPONSE, ota_error_str(err));
+        }
+
+    } else if (is_post && strstr(request, "/api/ota/apply") != NULL) {
+        /* OTA apply - reboot with new firmware */
+        snprintf(response, sizeof(response), "%sRebooting...", HTTP_OK_TEXT);
+        /* Send response first, then reboot */
+        size_t resp_len = strlen(response);
+        tcp_write(tpcb, response, resp_len, TCP_WRITE_FLAG_COPY);
+        tcp_output(tpcb);
+        sleep_ms(100);
+        ota_apply_and_reboot();
+        /* Won't return */
+
+    } else if (strstr(request, "/api/ota/status") != NULL) {
+        /* OTA status JSON */
+        const ota_status_t *ota = ota_get_status();
+        snprintf(response, sizeof(response),
+            "%s{\"state\":\"%s\",\"progress\":%d,\"total\":%u,\"received\":%u,\"error\":\"%s\"}",
+            HTTP_JSON_HEADER,
+            ota_state_str(ota->state),
+            ota_get_progress(),
+            (unsigned)ota->total_size,
+            (unsigned)ota->bytes_received,
+            ota_error_str(ota->last_error));
 
     } else {
         strcpy(response, HTTP_404_RESPONSE);

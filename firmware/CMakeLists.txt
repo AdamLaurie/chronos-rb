@@ -12,6 +12,29 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
+# OTA Encryption Key Configuration
+# The key file should contain a 32-character hex string (128-bit AES key)
+set(OTA_KEY_FILE "${CMAKE_CURRENT_SOURCE_DIR}/ota_key.txt")
+
+if(EXISTS "${OTA_KEY_FILE}")
+    file(READ "${OTA_KEY_FILE}" OTA_AES_KEY)
+    string(STRIP "${OTA_AES_KEY}" OTA_AES_KEY)
+    message(STATUS "OTA: Using encryption key from ota_key.txt")
+else()
+    # Generate a random key if none exists
+    string(RANDOM LENGTH 32 ALPHABET "0123456789abcdef" OTA_AES_KEY)
+    file(WRITE "${OTA_KEY_FILE}" "${OTA_AES_KEY}")
+    message(STATUS "OTA: Generated new encryption key in ota_key.txt")
+    message(WARNING "OTA: IMPORTANT - Keep ota_key.txt secret! It's required to create valid firmware updates.")
+endif()
+
+# Configure FOTA bootloader with encryption
+# Note: Encryption requires pycryptodome: sudo apt install python3-pycryptodome
+set(PFB_AES_KEY "${OTA_AES_KEY}" CACHE STRING "FOTA AES encryption key")
+
+# Add FOTA bootloader
+add_subdirectory(deps/pico_fota_bootloader)
+
 add_executable(chronos_rb
     src/main.c
     src/cli.c
@@ -26,6 +49,7 @@ add_executable(chronos_rb
     src/wifi_manager.c
     src/time_discipline.c
     src/web_interface.c
+    src/ota_update.c
 )
 
 target_include_directories(chronos_rb PRIVATE
@@ -47,6 +71,7 @@ target_link_libraries(chronos_rb
     pico_lwip_sntp
     pico_flash
     pico_multicore
+    pico_fota_bootloader_lib
     hardware_pio
     hardware_dma
     hardware_irq
@@ -61,6 +86,10 @@ target_link_libraries(chronos_rb
 # Enable USB and UART output
 pico_enable_stdio_usb(chronos_rb 1)
 pico_enable_stdio_uart(chronos_rb 1)
+
+# Compile with FOTA bootloader support (provides linker script and generates FOTA image)
+# Disable encryption for simplicity (can enable later with -DPFB_AES_KEY="...")
+pfb_compile_with_bootloader(chronos_rb)
 
 # Generate UF2 file for flashing
 pico_add_extra_outputs(chronos_rb)

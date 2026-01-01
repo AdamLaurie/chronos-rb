@@ -6,6 +6,9 @@ fp-info-cache
 # Build directories
 firmware/build/
 
+# OTA encryption key (secret - do not commit)
+firmware/ota_key.txt
+
 # Editor files
 *.swp
 *.swo

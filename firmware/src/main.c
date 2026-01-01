@@ -22,6 +22,7 @@
 #include "pulse_output.h"
 #include "ac_freq_monitor.h"
 #include "config.h"
+#include "ota_update.h"
 
 /*============================================================================
  * GLOBAL VARIABLES
@@ -327,6 +328,9 @@ void chronos_init(void) {
     printf("[INIT] Initializing CLI...\n");
     cli_init();
 
+    printf("[INIT] Initializing OTA subsystem...\n");
+    ota_init();
+
     /* Check for WiFi auto-connect */
     if (config_wifi_auto_connect_enabled()) {
         config_t *cfg = config_get();
@@ -475,25 +479,35 @@ static void print_status(void) {
 int main(void) {
     /* Set system clock to 150MHz for better timing resolution */
     set_sys_clock_khz(150000, true);
-    
+
     /* Initialize everything */
     chronos_init();
-    
+
     /* WiFi connection message */
     if (wifi_auto_state != WIFI_AUTO_PENDING) {
         printf("[WIFI] Use 'wifi <SSID> <PWD>' command to connect\n");
     }
-    
+
     printf("\n[MAIN] Entering main loop...\n\n");
-    
+
     /* Enable watchdog with 8 second timeout */
     watchdog_enable(8000, 1);
+
+    /* OTA boot confirmation timer - confirm after 60 seconds of stable operation */
+    static bool ota_boot_confirmed = false;
+    uint32_t ota_confirm_time = time_us_32() + 60000000;  /* 60 seconds */
     
     /* Main loop */
     while (1) {
         /* Feed watchdog */
         watchdog_update();
-        
+
+        /* OTA boot confirmation - confirm after 60 seconds of stable operation */
+        if (!ota_boot_confirmed && time_us_32() >= ota_confirm_time) {
+            ota_confirm_boot();
+            ota_boot_confirmed = true;
+        }
+
         /* Run all tasks */
         rubidium_sync_task();
 
