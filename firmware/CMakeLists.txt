@@ -94,8 +94,45 @@ pfb_compile_with_bootloader(chronos_rb)
 # Generate UF2 file for flashing
 pico_add_extra_outputs(chronos_rb)
 
-# Flash target: reboot into bootloader, wait for mount, copy UF2
+# Flash targets for UF2 files
+# Usage: make flash-bootloader  (first time only)
+#        make flash-app         (application updates)
+#        make flash-initial     (both bootloader + app for new devices)
+#        make flash             (same as flash-app, for OTA-capable devices)
+
+add_custom_target(flash-bootloader
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/flash.sh ${CMAKE_BINARY_DIR}/deps/pico_fota_bootloader/pico_fota_bootloader.uf2
+    DEPENDS pico_fota_bootloader
+    COMMENT "Flashing FOTA bootloader (required once for new devices)"
+)
+
+add_custom_target(flash-app
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/flash.sh ${CMAKE_BINARY_DIR}/chronos_rb.uf2
+    DEPENDS chronos_rb
+    COMMENT "Flashing application firmware"
+)
+
 add_custom_target(flash
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/flash.sh ${CMAKE_BINARY_DIR}/chronos_rb.uf2
     DEPENDS chronos_rb
+    COMMENT "Flashing application firmware"
+)
+
+add_custom_target(flash-initial
+    COMMAND ${CMAKE_COMMAND} -E echo "Step 1: Flashing bootloader..."
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/flash.sh ${CMAKE_BINARY_DIR}/deps/pico_fota_bootloader/pico_fota_bootloader.uf2
+    COMMAND ${CMAKE_COMMAND} -E echo "Step 2: Waiting for reboot..."
+    COMMAND ${CMAKE_COMMAND} -E sleep 3
+    COMMAND ${CMAKE_COMMAND} -E echo "Step 3: Flashing application..."
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/flash.sh ${CMAKE_BINARY_DIR}/chronos_rb.uf2
+    DEPENDS pico_fota_bootloader chronos_rb
+    COMMENT "Flashing bootloader + application (for new devices)"
+)
+
+# Print OTA update file location after build
+add_custom_command(TARGET chronos_rb POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo ""
+    COMMAND ${CMAKE_COMMAND} -E echo "=== Build Complete ==="
+    COMMAND ${CMAKE_COMMAND} -E echo "For OTA updates, use: ${CMAKE_BINARY_DIR}/chronos_rb_fota_image_encrypted.bin"
+    COMMAND ${CMAKE_COMMAND} -E echo ""
 )
