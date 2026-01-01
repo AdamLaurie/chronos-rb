@@ -37,7 +37,7 @@ A Stratum-1 NTP/PTP time server for Raspberry Pi Pico 2-W, disciplined by an FE-
 
 1. **Raspberry Pi Pico 2-W** - RP2350 with WiFi
 2. **FE-5680A Rubidium Oscillator** - 10MHz output (DB-9 version)
-3. **1PPS Source** - Either 4× 74HC390 divider chain OR GPS module (see Signal Conditioning)
+3. **GPS Module** - u-blox NEO-6M or similar with 1PPS output (~$10-15)
 4. **15V 3A Power Supply** - For rubidium physics package
 5. **LT1016 or MAX999 Comparator** - 10MHz sine-to-square conversion
 6. **Signal Conditioning Components** - See BOM in documentation
@@ -50,14 +50,16 @@ A Stratum-1 NTP/PTP time server for Raspberry Pi Pico 2-W, disciplined by an FE-
 │   Rubidium      │────▶│ Conditioning     │────▶│ Pico 2-W        │
 │   Oscillator    │     │ Circuit          │     │                 │
 └─────────────────┘     └──────────────────┘     └────────┬────────┘
-       │                                                   │
-       │                                                   │
-       │ 10MHz Sine                                       │ WiFi
-       │ Lock Status                                      ▼
-       │                                          ┌───────────────┐
-       └──────────────────────────────────────────│ NTP/PTP       │
-                                                  │ Clients       │
-                                                  └───────────────┘
+       │                        ▲                         │
+       │ 10MHz Sine             │ 1PPS + NMEA             │ WiFi
+       │ Lock Status            │                         ▼
+       │                 ┌──────┴───────┐         ┌───────────────┐
+       │                 │  GPS Module  │         │ NTP/PTP       │
+       │                 │  (NEO-6M)    │         │ Clients       │
+       │                 └──────────────┘         └───────────────┘
+       │
+       └─ Rb provides frequency stability (10⁻¹¹)
+          GPS provides UTC alignment (±10ns)
 ```
 
 ## 📁 Project Structure
@@ -121,7 +123,9 @@ See the Hardware Guide document for complete schematics. Key connections:
 
 | Pico GPIO | Signal | Source |
 |-----------|--------|--------|
-| GP2 | 1PPS Input | From 10MHz divider or external GPS |
+| GP0 | GPS TX (UART0 TX) | To GPS module RX |
+| GP1 | GPS RX (UART0 RX) | From GPS module TX |
+| GP2 | 1PPS Input | From GPS module PPS |
 | GP3 | 10MHz Input | FE-5680A via comparator |
 | GP4 | Lock Status | FE-5680A pin 3 via NPN level shifter |
 | GP6-9 | Status LEDs | With 330Ω resistors |
@@ -242,47 +246,48 @@ Sine    │  (100)  │      LT1016
             GND  GND
 ```
 
-### 1PPS Generation (Required)
+### GPS Module (Required)
 
-**The FE-5680A DB-9 version does NOT have a 1PPS output.** You must generate it using one of these methods:
+A GPS module provides two critical functions:
+1. **1PPS signal** - UTC-aligned pulse marking exact second boundaries (±10ns)
+2. **Time-of-day** - NMEA sentences with current UTC time via UART
 
-#### Option 1: Divide 10MHz (Recommended)
+The firmware counts 10MHz cycles from the rubidium oscillator and verifies against GPS 1PPS to ensure exactly 10,000,000 cycles per second. This provides rubidium-level frequency stability with GPS-level UTC alignment.
 
-Use 74HC390 dual decade counters to divide 10MHz by 10,000,000:
+#### Recommended Module: u-blox NEO-6M
 
-```
-10MHz ───┬──► 74HC390 ──► 74HC390 ──► 74HC390 ──► 74HC390 ──► 1PPS
-Square   │     (÷100)      (÷100)      (÷100)      (÷10)      to GP2
-         │
-         └──► To Pico GP3
+Widely available as breakout boards (GY-GPS6MV2, GY-NEO6MV2):
+- **Price:** ~$10-15
+- **1PPS accuracy:** ±10ns to UTC
+- **Interface:** UART (9600 baud default) + 1PPS output
+- **Voltage:** 3.3-5V (check your specific board)
 
-Each 74HC390 contains two ÷10 stages (÷100 total per chip)
-4 chips: ÷100 × ÷100 × ÷100 × ÷10 = ÷10,000,000
-```
+**Alternative:** BN-220 (~$15-20) - smaller form factor, same chipset
 
-**Components:**
-- 4× 74HC390 dual decade counter
-- Bypass capacitors (100nF per IC)
-- Output is 3.3V compatible when powered from 3.3V
-
-#### Option 2: External GPS Module
-
-Use a GPS/GNSS module with 1PPS output (e.g., u-blox NEO-6M/7M/8M):
+#### Wiring
 
 ```
-GPS Module
-1PPS Out ──── R4 ────┬──── D1 ────┬──── To Pico GP2
-(3.3-5V)    (2.2k)   │   (BAT54)  │
-                     │            │
-                     R5          GND
+GPS Module                              Pico
+───────────                             ────
+VCC ────────────────────────────────── 3.3V (or 5V if module requires)
+GND ────────────────────────────────── GND
+TX  ────────────────────────────────── GP1 (UART0 RX)
+RX  ────────────────────────────────── GP0 (UART0 TX)
+PPS ────────────────────────────────── GP2 (1PPS input)
+```
+
+**Note:** Most 3.3V GPS modules can connect directly. For 5V modules, add level shifting on PPS:
+
+```
+GPS 1PPS ──── R4 ────┬──── To Pico GP2
+(5V)        (2.2k)   │
+                     R5
                     (3.3k)
                      │
                     GND
 
-(Level shifter only needed if GPS outputs 5V)
+Divider: 5V × 3.3k/(2.2k+3.3k) ≈ 3.0V
 ```
-
-This also provides a GPS time reference for initial time-of-day setting.
 
 ### Lock Status Level Shifter
 
