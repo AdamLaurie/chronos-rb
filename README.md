@@ -16,6 +16,7 @@ A Stratum-1 NTP/PTP time server for Raspberry Pi Pico 2-W, disciplined by an FE-
 - **WiFi Connected** - Serves time over 802.11 b/g/n
 - **Web Interface** - Real-time status and configuration
 - **JSON API** - Integration with monitoring systems
+- **OTA Updates** - Encrypted firmware updates over WiFi with automatic rollback
 - **PIO Precision** - Hardware-timed capture for <1µs accuracy
 - **Automatic Holdover** - Maintains accuracy during reference loss
 - **Interval Pulse Outputs** - 0.5s, 1s, 6s, 30s, 60s timing signals
@@ -68,8 +69,13 @@ A Stratum-1 NTP/PTP time server for Raspberry Pi Pico 2-W, disciplined by an FE-
 chronos-rb/
 ├── firmware/
 │   ├── CMakeLists.txt          # Build configuration
+│   ├── flash.sh                # Flashing helper script
+│   ├── ota_key.txt             # AES encryption key (gitignored)
+│   ├── deps/
+│   │   └── pico_fota_bootloader/  # A/B partition bootloader
 │   ├── include/
-│   │   └── chronos_rb.h        # Main header with configs
+│   │   ├── chronos_rb.h        # Main header with configs
+│   │   └── ota_update.h        # OTA update API
 │   └── src/
 │       ├── main.c              # Entry point
 │       ├── pps_capture.c       # 1PPS timing capture
@@ -81,7 +87,8 @@ chronos-rb/
 │       ├── ntp_server.c        # NTPv4 implementation
 │       ├── ptp_server.c        # IEEE 1588 PTP
 │       ├── wifi_manager.c      # WiFi handling
-│       └── web_interface.c     # HTTP status page
+│       ├── web_interface.c     # HTTP status page + OTA
+│       └── ota_update.c        # OTA firmware updates
 ├── hardware/
 │   └── schematics/             # KiCad files (future)
 └── docs/
@@ -109,12 +116,35 @@ cmake -DPICO_SDK_PATH=/path/to/pico-sdk ..
 make -j4
 ```
 
-### 3. Flash to Pico
+**Build outputs:**
+| File | Purpose |
+|------|---------|
+| `pico_fota_bootloader.uf2` | A/B partition bootloader (flash first) |
+| `chronos_rb.uf2` | Application firmware |
+| `chronos_rb_fota_image_encrypted.bin` | Encrypted image for OTA updates |
 
-Hold BOOTSEL button while connecting USB, then:
+### 3. Flash to Pico (First Time)
 
+For new devices, flash the bootloader first, then the application:
+
+**Option A: Using make targets**
 ```bash
-cp chronos_rb.uf2 /media/$USER/RPI-RP2/
+# Flash bootloader, wait for reboot, then flash application
+make flash-initial
+```
+
+**Option B: Manual BOOTSEL flashing**
+```bash
+# Step 1: Hold BOOTSEL, connect USB, copy bootloader
+cp deps/pico_fota_bootloader/pico_fota_bootloader.uf2 /media/$USER/RP2350/
+
+# Step 2: Hold BOOTSEL again, copy application
+cp chronos_rb.uf2 /media/$USER/RP2350/
+```
+
+**Subsequent updates** can use OTA (see below) or:
+```bash
+make flash-app
 ```
 
 ### 4. Wire Hardware
@@ -191,6 +221,71 @@ curl http://192.168.1.100/api/status
   "ntp_requests": 1542
 }
 ```
+
+## 📦 OTA Firmware Updates
+
+CHRONOS-Rb supports encrypted over-the-air updates with automatic rollback protection.
+
+### How It Works
+
+- **A/B Partitioning**: Two firmware slots allow safe updates without bricking
+- **AES-128 Encryption**: Firmware images are encrypted with a device-specific key
+- **SHA-256 Validation**: Images are verified before applying
+- **Automatic Rollback**: If the new firmware fails to boot 3 times, the previous version is restored
+- **Boot Confirmation**: Firmware must run successfully for 60 seconds to be marked as good
+
+### Web Interface Update
+
+1. Navigate to `http://<device-ip>/ota`
+2. Click "Choose File" and select `chronos_rb_fota_image_encrypted.bin`
+3. Click "Upload Firmware" and wait for upload + validation
+4. Click "Apply & Reboot" to install the update
+
+### API Update
+
+```bash
+# Get OTA status
+curl http://192.168.1.100/api/ota/status
+
+# Upload firmware (chunked)
+FILE="chronos_rb_fota_image_encrypted.bin"
+SIZE=$(stat -c%s "$FILE")
+
+# Begin upload
+curl -X POST -H "X-OTA-Size: $SIZE" http://192.168.1.100/api/ota/begin
+
+# Upload in chunks (1KB each)
+split -b 1024 "$FILE" /tmp/chunk_
+for chunk in /tmp/chunk_*; do
+    curl -X POST --data-binary @"$chunk" \
+         -H "Content-Type: application/octet-stream" \
+         http://192.168.1.100/api/ota/chunk
+done
+
+# Finalize and validate
+curl -X POST http://192.168.1.100/api/ota/finish
+
+# Apply update (device will reboot)
+curl -X POST http://192.168.1.100/api/ota/apply
+```
+
+### Encryption Key
+
+The first build generates a random AES-128 key in `firmware/ota_key.txt`. This file is gitignored to keep it secret.
+
+**Important:**
+- Keep `ota_key.txt` backed up - you need it to create valid update images
+- All firmware builds must use the same key to be accepted by the device
+- If you lose the key, you must reflash via BOOTSEL
+
+### Recovery
+
+If an update fails and automatic rollback doesn't work:
+
+1. Hold BOOTSEL button while connecting USB
+2. Copy `pico_fota_bootloader.uf2` to the drive
+3. Wait for reboot, hold BOOTSEL again
+4. Copy `chronos_rb.uf2` to the drive
 
 ## 🔬 How It Works
 
