@@ -36,7 +36,7 @@
 #define GPIO_10MHZ_INPUT        3       /* GP3 - Frequency counter input */
 
 /* FE-5680A Status/Control Lines */
-#define GPIO_RB_LOCK_STATUS     4       /* GP4 - Rubidium lock indicator (active low) */
+#define GPIO_RB_LOCK_STATUS     22      /* GP22 - Rubidium lock indicator (HIGH=locked) */
 #define GPIO_RB_ENABLE          5       /* GP5 - Optional enable control */
 
 /* Status LEDs */

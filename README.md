@@ -127,8 +127,9 @@ See the Hardware Guide document for complete schematics. Key connections:
 | GP1 | GPS RX (UART0 RX) | From GPS module TX |
 | GP2 | 1PPS Input | From GPS module PPS |
 | GP3 | 10MHz Input | FE-5680A via comparator |
-| GP4 | Lock Status | FE-5680A pin 3 via NPN level shifter |
+| GP4/GP5 | I2C0 (optional) | For OLED display |
 | GP6-9 | Status LEDs | With 330Ω resistors |
+| GP22 | Lock Status | FE-5680A pin 3 via NPN level shifter |
 | GP14 | 0.5s Pulse | Interval output |
 | GP15 | 1s Pulse | Interval output |
 | GP16 | 6s Pulse | Interval output |
@@ -295,7 +296,7 @@ The FE-5680A lock output (Pin 3) is 4.8V when unlocked, 0.8V when locked. An NPN
 
 ```
 FE-5680A                                            To Pico
-Pin 3 ────── R6 ──────┬─────── B ┌───┐ C ───┬─────── GP4
+Pin 3 ────── R6 ──────┬─────── B ┌───┐ C ───┬─────── GP22
 (Lock)      (22k)     │         │ Q1 │      │       (HIGH = locked)
                       │         │2N3904     │
                  R7 ──┴── GND   └─┬─┘ E     ├── R9 ── GREEN LED ── GND
