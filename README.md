@@ -390,15 +390,17 @@ Divider: 5V × 3.3k/(2.2k+3.3k) ≈ 3.0V
 The FE-5680A lock output (Pin 3) is 4.8V when unlocked, 0.8V when locked. An NPN transistor inverts and level-shifts this to 3.3V logic:
 
 ```
-FE-5680A                                            To Pico
-Pin 3 ────── R6 ──────┬─────── B ┌───┐ C ───┬─────── GP22
-(Lock)      (22k)     │         │ Q1 │      │       (HIGH = locked)
-                      │         │2N3904     │
-                 R7 ──┴── GND   └─┬─┘ E     ├── R9 ── GREEN LED ── GND
-                (10k)              │         │   (330Ω)  (locked)
-                                  GND        │
-            +3.3V ─── R8 ─────────┘          └── R10 ── YELLOW LED ── +3.3V
-                     (1k)                        (330Ω)  (unlocked)
+                      +3.3V
+                        │
+FE-5680A               R8 (1k)              +3.3V
+Pin 3 ─── R6 ───┬───── B     C ─────┬─────── GP22 (HIGH = locked)
+(Lock)   (22k)  │      ┌─────┐      │
+                │      │2N3904│      ├─ R9 ─── GREEN LED ─── GND
+           R7 ──┴─ GND │  Q1  │      │  (330Ω)   (locked)
+          (10k)        └──┬──┘       │
+                          E          └─ R10 ── YELLOW LED ── +3.3V
+                          │             (330Ω)  (unlocked)
+                         GND
 
 Operation:
 - Unlocked (4.8V): Q1 ON  → collector LOW  → YELLOW on,  GREEN off

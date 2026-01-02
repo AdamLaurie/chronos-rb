@@ -126,33 +126,27 @@
   <line x1="353" y1="257" x2="357" y2="257" stroke="#333" stroke-width="2"/>
 
   <!-- ===== YELLOW LED (lights when UNLOCKED - collector LOW) ===== -->
-  <!-- Line down from green LED ground to yellow LED junction -->
-  <line x1="355" y1="245" x2="355" y2="270" stroke="#333" stroke-width="2"/>
+  <!-- Horizontal line from collector junction to yellow LED -->
+  <line x1="355" y1="105" x2="430" y2="105" stroke="#333" stroke-width="2"/>
 
-  <!-- Junction for yellow LED -->
-  <circle cx="355" cy="270" r="3" fill="#333"/>
-
-  <!-- Horizontal line to yellow LED -->
-  <line x1="355" y1="270" x2="430" y2="270" stroke="#333" stroke-width="2"/>
-
-  <!-- Yellow LED symbol (current flows up from 3.3V through LED to collector) -->
-  <line x1="430" y1="270" x2="430" y2="280" stroke="#333" stroke-width="2"/>
-  <line x1="420" y1="280" x2="440" y2="280" stroke="#333" stroke-width="2"/>
-  <polygon points="420,300 440,300 430,280" fill="#fbbf24" stroke="#333" stroke-width="1.5"/>
-  <text x="450" y="290" font-family="Arial" font-size="9" fill="#d97706" font-weight="bold">YELLOW</text>
-  <text x="450" y="302" font-family="Arial" font-size="8" fill="#666">(unlocked)</text>
+  <!-- Yellow LED symbol (current flows from 3.3V through LED to collector when LOW) -->
+  <line x1="430" y1="105" x2="430" y2="120" stroke="#333" stroke-width="2"/>
+  <line x1="420" y1="120" x2="440" y2="120" stroke="#333" stroke-width="2"/>
+  <polygon points="420,140 440,140 430,120" fill="#fbbf24" stroke="#333" stroke-width="1.5"/>
+  <text x="450" y="130" font-family="Arial" font-size="9" fill="#d97706" font-weight="bold">YELLOW</text>
+  <text x="450" y="142" font-family="Arial" font-size="8" fill="#666">(unlocked)</text>
 
   <!-- Line to R10 -->
-  <line x1="430" y1="300" x2="430" y2="310" stroke="#333" stroke-width="2"/>
+  <line x1="430" y1="140" x2="430" y2="155" stroke="#333" stroke-width="2"/>
 
-  <!-- R10 - Red LED resistor -->
-  <rect x="420" y="310" width="20" height="35" fill="none" stroke="#333" stroke-width="2"/>
-  <text x="447" y="322" font-family="Arial" font-size="10" fill="#333">R10</text>
-  <text x="447" y="337" font-family="Arial" font-size="9" fill="#666">330Ω</text>
+  <!-- R10 - Yellow LED resistor -->
+  <rect x="420" y="155" width="20" height="35" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="447" y="167" font-family="Arial" font-size="10" fill="#333">R10</text>
+  <text x="447" y="182" font-family="Arial" font-size="9" fill="#666">330Ω</text>
 
   <!-- Line to +3.3V -->
-  <line x1="430" y1="345" x2="430" y2="358" stroke="#e94560" stroke-width="2"/>
-  <text x="430" y="372" text-anchor="middle" font-family="Arial" font-size="10" fill="#e94560" font-weight="bold">+3.3V</text>
+  <line x1="430" y1="190" x2="430" y2="205" stroke="#e94560" stroke-width="2"/>
+  <text x="430" y="220" text-anchor="middle" font-family="Arial" font-size="10" fill="#e94560" font-weight="bold">+3.3V</text>
 
   <!-- Operation note -->
   <rect x="25" y="270" width="180" height="75" fill="#f0f8ff" stroke="#0f3460" stroke-width="1" rx="4"/>
