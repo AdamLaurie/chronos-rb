@@ -330,17 +330,27 @@ The FE-5680A outputs a 1Vpp sine wave. A high-speed comparator converts this to 
                   │
                   R1 (10k)
                   │
-10MHz ──┬── R2 ──┤+
-Sine    │  (100)  │      LT1016
-        C1        │               ──── 10MHz Square
-       (100nF)    │                    to Pico GP3
-        │    ┌────┤-
-       GND   │    │
-             R3   │
-            (10k) │
-             │    │
-            GND  GND
+10MHz ──┬── R2 ──┤+              ┌───────────── 10MHz Square
+Sine    │  (100)  │      LT1016  │              to Pico GP3
+        C1        │       OUT ───┼─── R4 ─── BLUE LED ─── GND
+       (100nF)    │              │    (1k)   (signal)
+        │    ┌────┤-             │
+       GND   │    │              │
+             R3   │              │
+            (10k) │              │
+             │    │              │
+            GND  GND            OUT
+
+Signal indicator: LED glows when 10MHz present (appears solid due to speed)
 ```
+
+**Components:**
+- R1: 10kΩ (+ input bias)
+- R2: 100Ω (input coupling)
+- R3: 10kΩ (- input bias to set threshold)
+- R4: 1kΩ (LED current limit)
+- C1: 100nF (DC blocking)
+- 1× Blue LED (10MHz signal indicator)
 
 ### GPS Module (Required)
 
