@@ -323,34 +323,49 @@ INIT ──▶ FREQ_CAL ──▶ COARSE ──▶ FINE ──▶ LOCKED
 
 ### 10MHz Sine to Square Converter
 
-The FE-5680A outputs a 1Vpp sine wave. A high-speed comparator converts this to 3.3V LVCMOS:
+The FE-5680A outputs a ~860mVpp sine wave at ~0.7V DC. An LT1016 high-speed comparator converts this to 3.3V LVCMOS for the Pico:
 
 ```
-                +3.3V
-                  │
-                  R1 (10k)
-                  │
-10MHz ──┬── R2 ──┤+              ┌───────────── 10MHz Square
-Sine    │  (100)  │      LT1016  │              to Pico GP3
-        C1        │       OUT ───┼─── R4 ─── BLUE LED ─── GND
-       (100nF)    │              │    (1k)   (signal)
-        │    ┌────┤-             │
-       GND   │    │              │
-             R3   │              │
-            (10k) │              │
-             │    │              │
-            GND  GND            OUT
+           +5V         +5V
+            │           │
+           R2          ┌┴┐
+          (6.8k)       │C1│ 0.1µF
+            │          └┬┘
+FE-5680A    │           │
+Pin 7 ─────R1────┬─────Pin 1 (V+)
+(10MHz)   (100Ω) │
+                 │    ┌────────────┐
+            Pin 2├────┤            ├─Pin 8──R6───LED──GND
+            (+IN)│    │   LT1016   │       (500Ω) (purple)
+                 │    │            │
+            Pin 3├────┤            ├─Pin 7──R4───┬───► GP3
+            (-IN)│    └────────────┘       (100Ω)│    (~3V)
+                 │     │   │   │              R5
+                R3    Pin4 Pin5 Pin6         (220Ω)
+               (1k)    │   │   │              │
+                │      └───┴───┴──────────────┴───GND
+               GND
 
-Signal indicator: LED glows when 10MHz present (appears solid due to speed)
+Threshold: ~0.64V from R2/R3 divider
+Level shift: 5V→3V via R4/R5 divider
+LED: On Q̅ (pin 8), lights when output LOW (inverted indicator)
 ```
 
 **Components:**
-- R1: 10kΩ (+ input bias)
-- R2: 100Ω (input coupling)
-- R3: 10kΩ (- input bias to set threshold)
-- R4: 1kΩ (LED current limit)
-- C1: 100nF (DC blocking)
-- 1× Blue LED (10MHz signal indicator)
+- R1: 100Ω (input series resistor)
+- R2: 6.8kΩ (threshold divider, top)
+- R3: 1kΩ (threshold divider, bottom) → ~0.64V at -IN
+- R4: 100Ω (level shifter, top)
+- R5: 220Ω (level shifter, bottom) → ~3V output
+- R6: 500Ω (LED current limit)
+- C1: 0.1µF (bypass capacitor)
+- U1: LT1016 (5V supply, 10ns comparator)
+- 1× Purple LED (10MHz signal indicator, inverted)
+
+**Notes:**
+- No hysteresis feedback needed for 860mVpp signal
+- LED on Q̅ (pin 8) to reduce loading on Q (pin 7)
+- Lower value level shifter resistors prevent RC filtering at 10MHz
 
 ### GPS Module (Required)
 

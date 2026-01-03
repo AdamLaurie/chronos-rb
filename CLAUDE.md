@@ -125,7 +125,11 @@ The sync state machine in `rubidium_sync.c` progresses through calibration phase
 
 The firmware expects specific signal conditioning between FE-5680A and Pico:
 
-1. **10MHz Conversion**: FE-5680A outputs 1Vpp sine wave. Must be converted to 3.3V LVCMOS square wave using high-speed comparator (LT1016 or MAX999) before connecting to GP3.
+1. **10MHz Conversion**: FE-5680A outputs ~860mVpp sine wave at ~0.7V DC offset. Use LT1016 comparator (5V supply) with:
+   - 6.8kΩ/1kΩ voltage divider on -IN to set ~0.64V threshold
+   - 100Ω/220Ω level shifter on output for 5V→3V conversion
+   - No hysteresis feedback needed for this signal level
+   - Purple LED on Q̅ (pin 8) as signal indicator (reduces loading on Q output)
 
 2. **1PPS Source**: Most FE-5680A units do NOT have a native 1PPS output. Options:
    - Derive from 10MHz using divide-by-10M circuit (e.g., 74HC4017 decade counter chain)
@@ -134,7 +138,7 @@ The firmware expects specific signal conditioning between FE-5680A and Pico:
 
 3. **Lock Status**: FE-5680A pin 3 outputs 4.8V (unlocked) / 0.8V (locked). Uses NPN transistor level shifter (2N3904) to convert to 3.3V logic with inverted polarity (GPIO HIGH = locked).
 
-See `docs/CHRONOS-Rb_Hardware_Guide.docx` for complete schematics with component values.
+See `docs/CHRONOS-Rb_Hardware_Guide.docx` and `hardware/10mhz_comparator.svg` for complete schematics with component values.
 
 ## Development Workflow
 

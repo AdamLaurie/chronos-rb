@@ -1,129 +1,161 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 380">
-  <defs>
-    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
-    </marker>
-  </defs>
-  
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
   <!-- Background -->
-  <rect width="600" height="380" fill="#ffffff"/>
-  
+  <rect width="600" height="400" fill="#ffffff"/>
+
   <!-- Title -->
-  <text x="300" y="28" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#1a1a2e">10MHz Sine to Square Wave Converter</text>
-  
-  <!-- +3.3V Rail -->
-  <line x1="350" y1="55" x2="350" y2="75" stroke="#e94560" stroke-width="2"/>
-  <text x="350" y="50" text-anchor="middle" font-family="Arial" font-size="12" fill="#e94560" font-weight="bold">+3.3V</text>
-  
-  <!-- R1 - Pull-up resistor -->
-  <rect x="340" y="75" width="20" height="50" fill="none" stroke="#333" stroke-width="2"/>
-  <text x="375" y="95" font-family="Arial" font-size="11" fill="#333">R1</text>
-  <text x="375" y="108" font-family="Arial" font-size="10" fill="#666">10kΩ</text>
-  <line x1="350" y1="125" x2="350" y2="145" stroke="#333" stroke-width="2"/>
-  
-  <!-- Comparator Symbol (Triangle) -->
-  <polygon points="300,145 300,245 400,195" fill="#f8f8f8" stroke="#0f3460" stroke-width="2.5"/>
-  <text x="325" y="188" font-family="Arial" font-size="12" fill="#0f3460" font-weight="bold">+</text>
-  <text x="325" y="212" font-family="Arial" font-size="12" fill="#0f3460" font-weight="bold">−</text>
-  <text x="320" y="260" font-family="Arial" font-size="11" fill="#0f3460" font-weight="bold">LT1016</text>
-  <text x="320" y="273" font-family="Arial" font-size="10" fill="#0f3460">or MAX999</text>
-  
-  <!-- Connection from R1 to output line -->
-  <circle cx="350" cy="145" r="3" fill="#333"/>
-  <line x1="350" y1="145" x2="450" y2="145" stroke="#333" stroke-width="2"/>
-  <line x1="450" y1="145" x2="450" y2="195" stroke="#333" stroke-width="2"/>
-  <circle cx="450" cy="195" r="3" fill="#333"/>
-  
-  <!-- Output connection from comparator -->
-  <line x1="400" y1="195" x2="520" y2="195" stroke="#333" stroke-width="2"/>
+  <text x="300" y="25" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold" fill="#1a1a2e">10MHz Sine to Square Wave Converter</text>
 
-  <!-- Junction for LED indicator -->
-  <circle cx="480" cy="195" r="3" fill="#333"/>
+  <!-- LT1016 DIP-8 Package -->
+  <rect x="220" y="110" width="100" height="150" fill="#f8f8f8" stroke="#0f3460" stroke-width="2" rx="3"/>
+  <path d="M 260 110 A 10 10 0 0 0 280 110" fill="none" stroke="#0f3460" stroke-width="2"/>
+  <text x="270" y="185" text-anchor="middle" font-family="Arial" font-size="11" fill="#0f3460" font-weight="bold">LT1016</text>
 
-  <!-- Line down to LED -->
-  <line x1="480" y1="195" x2="480" y2="220" stroke="#333" stroke-width="2"/>
+  <!-- Pin labels inside chip -->
+  <text x="228" y="133" font-family="Arial" font-size="8" fill="#333">1 V+</text>
+  <text x="228" y="158" font-family="Arial" font-size="8" fill="#333">2 +IN</text>
+  <text x="228" y="183" font-family="Arial" font-size="8" fill="#333">3 -IN</text>
+  <text x="228" y="208" font-family="Arial" font-size="8" fill="#333">4 V-</text>
 
-  <!-- R4 - LED current limiting resistor -->
-  <rect x="470" y="220" width="20" height="35" fill="none" stroke="#333" stroke-width="2"/>
-  <text x="497" y="232" font-family="Arial" font-size="10" fill="#333">R4</text>
-  <text x="497" y="245" font-family="Arial" font-size="9" fill="#666">1kΩ</text>
+  <text x="312" y="133" font-family="Arial" font-size="8" fill="#333" text-anchor="end">Q̅ 8</text>
+  <text x="312" y="158" font-family="Arial" font-size="8" fill="#333" text-anchor="end">Q 7</text>
+  <text x="312" y="183" font-family="Arial" font-size="8" fill="#333" text-anchor="end">GND 6</text>
+  <text x="312" y="208" font-family="Arial" font-size="8" fill="#333" text-anchor="end">LATCH 5</text>
 
-  <!-- Line to LED -->
-  <line x1="480" y1="255" x2="480" y2="270" stroke="#333" stroke-width="2"/>
+  <!-- Pin lines from chip -->
+  <line x1="190" y1="128" x2="220" y2="128" stroke="#e94560" stroke-width="2"/>
+  <line x1="190" y1="153" x2="220" y2="153" stroke="#333" stroke-width="2"/>
+  <line x1="190" y1="178" x2="220" y2="178" stroke="#333" stroke-width="2"/>
+  <line x1="190" y1="203" x2="220" y2="203" stroke="#333" stroke-width="2"/>
 
-  <!-- Blue LED symbol -->
-  <polygon points="470,270 490,270 480,290" fill="#3b82f6" stroke="#333" stroke-width="1.5"/>
-  <line x1="470" y1="290" x2="490" y2="290" stroke="#333" stroke-width="2"/>
-  <text x="500" y="280" font-family="Arial" font-size="9" fill="#2563eb" font-weight="bold">BLUE</text>
-  <text x="500" y="292" font-family="Arial" font-size="8" fill="#666">(signal)</text>
+  <line x1="320" y1="128" x2="350" y2="128" stroke="#333" stroke-width="2"/>
+  <line x1="320" y1="153" x2="350" y2="153" stroke="#333" stroke-width="2"/>
+  <line x1="320" y1="178" x2="350" y2="178" stroke="#333" stroke-width="2"/>
+  <line x1="320" y1="203" x2="350" y2="203" stroke="#333" stroke-width="2"/>
+
+  <!-- +5V Rail and bypass cap -->
+  <line x1="160" y1="55" x2="160" y2="128" stroke="#e94560" stroke-width="2"/>
+  <line x1="160" y1="128" x2="190" y2="128" stroke="#e94560" stroke-width="2"/>
+  <text x="160" y="47" text-anchor="middle" font-family="Arial" font-size="10" fill="#e94560" font-weight="bold">+5V</text>
+
+  <circle cx="160" cy="128" r="2" fill="#e94560"/>
+  <line x1="160" y1="128" x2="160" y2="145" stroke="#333" stroke-width="2"/>
+  <line x1="152" y1="145" x2="168" y2="145" stroke="#333" stroke-width="2"/>
+  <line x1="152" y1="151" x2="168" y2="151" stroke="#333" stroke-width="2"/>
+  <text x="175" y="152" font-family="Arial" font-size="8" fill="#333">C1 0.1µF</text>
+  <line x1="160" y1="151" x2="160" y2="165" stroke="#333" stroke-width="2"/>
+  <line x1="152" y1="165" x2="168" y2="165" stroke="#333" stroke-width="2"/>
+  <line x1="155" y1="170" x2="165" y2="170" stroke="#333" stroke-width="2"/>
+  <line x1="158" y1="175" x2="162" y2="175" stroke="#333" stroke-width="2"/>
+
+  <!-- FE Input with R1 -->
+  <text x="25" y="148" font-family="Arial" font-size="9" fill="#333" font-weight="bold">FE-5680A</text>
+  <text x="25" y="160" font-family="Arial" font-size="8" fill="#666">Pin 7 (10MHz)</text>
+  <line x1="75" y1="153" x2="95" y2="153" stroke="#333" stroke-width="2"/>
+  <rect x="95" y="145" width="35" height="16" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="112" y="140" text-anchor="middle" font-family="Arial" font-size="8" fill="#333">R1</text>
+  <text x="112" y="173" text-anchor="middle" font-family="Arial" font-size="8" fill="#666">100Ω</text>
+  <line x1="130" y1="153" x2="190" y2="153" stroke="#333" stroke-width="2"/>
+
+  <!-- -IN voltage divider -->
+  <line x1="120" y1="55" x2="120" y2="70" stroke="#e94560" stroke-width="2"/>
+  <text x="120" y="47" text-anchor="middle" font-family="Arial" font-size="10" fill="#e94560" font-weight="bold">+5V</text>
+  <rect x="110" y="70" width="20" height="40" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="95" y="85" font-family="Arial" font-size="8" fill="#333">R2</text>
+  <text x="95" y="95" font-family="Arial" font-size="8" fill="#666">6.8kΩ</text>
+  <line x1="120" y1="110" x2="120" y2="178" stroke="#333" stroke-width="2"/>
+  <circle cx="120" cy="178" r="2" fill="#333"/>
+  <line x1="120" y1="178" x2="190" y2="178" stroke="#333" stroke-width="2"/>
+  <text x="145" y="175" font-family="Arial" font-size="7" fill="#0f3460" font-weight="bold">~0.64V</text>
+
+  <line x1="120" y1="178" x2="120" y2="195" stroke="#333" stroke-width="2"/>
+  <rect x="110" y="195" width="20" height="40" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="95" y="210" font-family="Arial" font-size="8" fill="#333">R3</text>
+  <text x="95" y="220" font-family="Arial" font-size="8" fill="#666">1kΩ</text>
+  <line x1="120" y1="235" x2="120" y2="255" stroke="#333" stroke-width="2"/>
+  <line x1="112" y1="255" x2="128" y2="255" stroke="#333" stroke-width="2"/>
+  <line x1="115" y1="260" x2="125" y2="260" stroke="#333" stroke-width="2"/>
+  <line x1="118" y1="265" x2="122" y2="265" stroke="#333" stroke-width="2"/>
+
+  <!-- Pins 4,5,6 to GND -->
+  <line x1="350" y1="178" x2="370" y2="178" stroke="#333" stroke-width="2"/>
+  <line x1="370" y1="178" x2="370" y2="203" stroke="#333" stroke-width="2"/>
+  <circle cx="370" cy="203" r="2" fill="#333"/>
+  <line x1="350" y1="203" x2="370" y2="203" stroke="#333" stroke-width="2"/>
+  <line x1="370" y1="203" x2="370" y2="255" stroke="#333" stroke-width="2"/>
+  <line x1="362" y1="255" x2="378" y2="255" stroke="#333" stroke-width="2"/>
+  <line x1="365" y1="260" x2="375" y2="260" stroke="#333" stroke-width="2"/>
+  <line x1="368" y1="265" x2="372" y2="265" stroke="#333" stroke-width="2"/>
+
+  <!-- Pin 4 to GND -->
+  <line x1="190" y1="203" x2="175" y2="203" stroke="#333" stroke-width="2"/>
+  <line x1="175" y1="203" x2="175" y2="255" stroke="#333" stroke-width="2"/>
+  <line x1="167" y1="255" x2="183" y2="255" stroke="#333" stroke-width="2"/>
+  <line x1="170" y1="260" x2="180" y2="260" stroke="#333" stroke-width="2"/>
+  <line x1="173" y1="265" x2="177" y2="265" stroke="#333" stroke-width="2"/>
+
+  <!-- Pin 7 (Q) output with level shifter -->
+  <line x1="350" y1="153" x2="400" y2="153" stroke="#333" stroke-width="2"/>
+  <circle cx="400" cy="153" r="2" fill="#333"/>
+
+  <!-- R4 level shifter -->
+  <line x1="400" y1="153" x2="420" y2="153" stroke="#333" stroke-width="2"/>
+  <rect x="420" y="145" width="35" height="16" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="437" y="140" text-anchor="middle" font-family="Arial" font-size="8" fill="#333">R4</text>
+  <text x="437" y="173" text-anchor="middle" font-family="Arial" font-size="8" fill="#666">100Ω</text>
+  <line x1="455" y1="153" x2="490" y2="153" stroke="#333" stroke-width="2"/>
+  <circle cx="490" cy="153" r="2" fill="#333"/>
+
+  <!-- R5 to GND -->
+  <line x1="490" y1="153" x2="490" y2="170" stroke="#333" stroke-width="2"/>
+  <rect x="480" y="170" width="20" height="40" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="507" y="185" font-family="Arial" font-size="8" fill="#333">R5</text>
+  <text x="507" y="195" font-family="Arial" font-size="8" fill="#666">220Ω</text>
+  <line x1="490" y1="210" x2="490" y2="230" stroke="#333" stroke-width="2"/>
+  <line x1="482" y1="230" x2="498" y2="230" stroke="#333" stroke-width="2"/>
+  <line x1="485" y1="235" x2="495" y2="235" stroke="#333" stroke-width="2"/>
+  <line x1="488" y1="240" x2="492" y2="240" stroke="#333" stroke-width="2"/>
+
+  <!-- Output to Pico -->
+  <line x1="490" y1="153" x2="530" y2="153" stroke="#333" stroke-width="2"/>
+  <circle cx="530" cy="153" r="4" fill="#4ade80" stroke="#333" stroke-width="1.5"/>
+  <text x="545" y="150" font-family="Arial" font-size="9" fill="#333" font-weight="bold">→GP3</text>
+  <text x="545" y="162" font-family="Arial" font-size="8" fill="#666">~3V out</text>
+
+  <!-- Pin 8 (Q̅) with LED -->
+  <line x1="350" y1="128" x2="400" y2="128" stroke="#333" stroke-width="2"/>
+  <rect x="400" y="120" width="35" height="16" fill="none" stroke="#333" stroke-width="2"/>
+  <text x="417" y="115" text-anchor="middle" font-family="Arial" font-size="8" fill="#333">R6</text>
+  <text x="417" y="148" text-anchor="middle" font-family="Arial" font-size="8" fill="#666">500Ω</text>
+  <line x1="435" y1="128" x2="460" y2="128" stroke="#333" stroke-width="2"/>
+
+  <!-- Purple LED -->
+  <polygon points="460,118 460,138 480,128" fill="#a855f7" stroke="#333" stroke-width="1.5"/>
+  <line x1="480" y1="118" x2="480" y2="138" stroke="#333" stroke-width="2"/>
+  <text x="490" y="125" font-family="Arial" font-size="8" fill="#9333ea" font-weight="bold">PURPLE</text>
+  <text x="490" y="136" font-family="Arial" font-size="7" fill="#666">(inverted)</text>
 
   <!-- LED to GND -->
-  <line x1="480" y1="290" x2="480" y2="310" stroke="#333" stroke-width="2"/>
-  <line x1="470" y1="310" x2="490" y2="310" stroke="#333" stroke-width="2"/>
-  <line x1="474" y1="316" x2="486" y2="316" stroke="#333" stroke-width="2"/>
-  <line x1="478" y1="322" x2="482" y2="322" stroke="#333" stroke-width="2"/>
+  <line x1="480" y1="128" x2="510" y2="128" stroke="#333" stroke-width="2"/>
+  <line x1="510" y1="128" x2="510" y2="145" stroke="#333" stroke-width="2"/>
+  <line x1="502" y1="145" x2="518" y2="145" stroke="#333" stroke-width="2"/>
+  <line x1="505" y1="150" x2="515" y2="150" stroke="#333" stroke-width="2"/>
+  <line x1="508" y1="155" x2="512" y2="155" stroke="#333" stroke-width="2"/>
 
-  <!-- Output label -->
-  <text x="530" y="190" font-family="Arial" font-size="11" fill="#333" font-weight="bold">10MHz Square</text>
-  <text x="530" y="205" font-family="Arial" font-size="10" fill="#666">→ Pico GP3</text>
-  <circle cx="520" cy="195" r="5" fill="#4ade80" stroke="#333" stroke-width="1.5"/>
-  
-  <!-- Input section -->
-  <!-- R2 - Series resistor -->
-  <line x1="80" y1="175" x2="130" y2="175" stroke="#333" stroke-width="2"/>
-  <rect x="130" y="165" width="40" height="20" fill="none" stroke="#333" stroke-width="2"/>
-  <text x="150" y="158" text-anchor="middle" font-family="Arial" font-size="11" fill="#333">R2</text>
-  <text x="150" y="200" text-anchor="middle" font-family="Arial" font-size="10" fill="#666">100Ω</text>
-  <line x1="170" y1="175" x2="210" y2="175" stroke="#333" stroke-width="2"/>
-  
-  <!-- Junction point after R2 -->
-  <circle cx="210" cy="175" r="3" fill="#333"/>
-  
-  <!-- C1 - AC coupling capacitor -->
-  <line x1="210" y1="175" x2="210" y2="215" stroke="#333" stroke-width="2"/>
-  <line x1="200" y1="215" x2="220" y2="215" stroke="#333" stroke-width="3"/>
-  <line x1="200" y1="223" x2="220" y2="223" stroke="#333" stroke-width="3"/>
-  <line x1="210" y1="223" x2="210" y2="280" stroke="#333" stroke-width="2"/>
-  <text x="228" y="215" font-family="Arial" font-size="11" fill="#333">C1</text>
-  <text x="228" y="228" font-family="Arial" font-size="10" fill="#666">100nF</text>
-  
-  <!-- Line from junction to + input -->
-  <line x1="210" y1="175" x2="300" y2="175" stroke="#333" stroke-width="2"/>
-  
-  <!-- Threshold voltage divider connection -->
-  <circle cx="250" cy="175" r="3" fill="#333"/>
-  <line x1="250" y1="175" x2="250" y2="215" stroke="#333" stroke-width="2"/>
-  <circle cx="250" cy="215" r="3" fill="#333"/>
-  
-  <!-- Line to - input -->
-  <line x1="250" y1="215" x2="300" y2="215" stroke="#333" stroke-width="2"/>
-  
-  <!-- R3 - Threshold resistor -->
-  <line x1="250" y1="215" x2="250" y2="235" stroke="#333" stroke-width="2"/>
-  <rect x="240" y="235" width="20" height="50" fill="none" stroke="#333" stroke-width="2"/>
-  <line x1="250" y1="285" x2="250" y2="310" stroke="#333" stroke-width="2"/>
-  <text x="268" y="255" font-family="Arial" font-size="11" fill="#333">R3</text>
-  <text x="268" y="268" font-family="Arial" font-size="10" fill="#666">10kΩ</text>
-  
-  <!-- Ground symbols -->
-  <line x1="200" y1="280" x2="220" y2="280" stroke="#333" stroke-width="2"/>
-  <line x1="204" y1="286" x2="216" y2="286" stroke="#333" stroke-width="2"/>
-  <line x1="208" y1="292" x2="212" y2="292" stroke="#333" stroke-width="2"/>
-  <text x="210" y="308" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">GND</text>
-  
-  <line x1="240" y1="310" x2="260" y2="310" stroke="#333" stroke-width="2"/>
-  <line x1="244" y1="316" x2="256" y2="316" stroke="#333" stroke-width="2"/>
-  <line x1="248" y1="322" x2="252" y2="322" stroke="#333" stroke-width="2"/>
-  <text x="250" y="338" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">GND</text>
-  
-  <!-- Input label -->
-  <text x="40" y="165" font-family="Arial" font-size="11" fill="#333" font-weight="bold">10MHz</text>
-  <text x="40" y="180" font-family="Arial" font-size="10" fill="#666">Sine Wave</text>
-  <text x="40" y="195" font-family="Arial" font-size="10" fill="#666">(~1Vpp)</text>
-  
+  <!-- 5V->3V label -->
+  <text x="470" y="93" text-anchor="middle" font-family="Arial" font-size="8" fill="#0f3460" font-weight="bold">5V→3V</text>
+
   <!-- Component box -->
-  <rect x="20" y="348" width="560" height="28" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="4"/>
-  <text x="300" y="366" text-anchor="middle" font-family="Arial" font-size="10" fill="#333">
-    <tspan font-weight="bold">Components:</tspan> R1, R3 = 10kΩ | R2 = 100Ω | R4 = 1kΩ | C1 = 100nF | U1 = LT1016/MAX999 | Blue LED
+  <rect x="20" y="310" width="560" height="80" fill="#f5f5f5" stroke="#ddd" stroke-width="1" rx="4"/>
+  <text x="300" y="328" text-anchor="middle" font-family="Arial" font-size="9" fill="#333">
+    <tspan font-weight="bold">Components:</tspan> R1=100Ω (input) | R2=6.8kΩ, R3=1kΩ (threshold) | R4=100Ω, R5=220Ω (level shift) | R6=500Ω (LED)
+  </text>
+  <text x="300" y="345" text-anchor="middle" font-family="Arial" font-size="9" fill="#333">
+    C1=0.1µF (bypass) | U1=LT1016 (5V) | Purple LED on Q̅ (pin 8)
+  </text>
+  <text x="300" y="362" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">
+    Threshold ~0.64V | Output ~3V (Pico safe) | LED lights when output LOW (inverted indicator)
+  </text>
+  <text x="300" y="379" text-anchor="middle" font-family="Arial" font-size="9" fill="#666">
+    No hysteresis feedback (Rf removed) - not needed for 860mVpp 10MHz signal
   </text>
 </svg>
