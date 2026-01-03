@@ -33,7 +33,7 @@
 #define GPIO_PPS_INPUT          2       /* GP2 - PIO capture input */
 
 /* 10MHz Reference Input (after comparator, 3.3V LVCMOS) */
-#define GPIO_10MHZ_INPUT        3       /* GP3 - Frequency counter input */
+#define GPIO_10MHZ_INPUT        20      /* GP20 - Frequency counter input */
 
 /* FE-5680A Status/Control Lines */
 #define GPIO_RB_LOCK_STATUS     22      /* GP22 - Rubidium lock indicator (HIGH=locked) */

@@ -71,8 +71,8 @@ The core architecture implements a closed-loop control system that disciplines t
 
 ```
 FE-5680A (10MHz + Lock Status)
-    → Signal Conditioning (comparator + NPN level shifter)
-    → Pico GPIO (GP3=10MHz, GP4=Lock)
+    → Signal Conditioning (LT1016 comparator + NPN level shifter)
+    → Pico GPIO (GP20=10MHz, GP22=Lock)
 
 1PPS Source (from 10MHz divider or external GPS)
     → Level Shifter (if needed)
@@ -91,8 +91,8 @@ derived from the 10MHz reference using a divide-by-10M circuit, or sourced exter
 
 Critical pins defined in `chronos_rb.h`:
 - **GP2**: 1PPS input (PIO capture) - from 10MHz divider or external source
-- **GP3**: 10MHz input (frequency counter) - from FE-5680A via comparator
-- **GP4**: Rubidium lock status (HIGH=locked, via NPN level shifter from FE-5680A pin 3)
+- **GP20**: 10MHz input (frequency counter) - from FE-5680A via LT1016 comparator
+- **GP22**: Rubidium lock status (HIGH=locked, via NPN level shifter from FE-5680A pin 3)
 - **GP6-9**: Status LEDs (sync/network/activity/error)
 - **GP14-18**: Interval pulse outputs (0.5s/1s/6s/30s/60s)
 

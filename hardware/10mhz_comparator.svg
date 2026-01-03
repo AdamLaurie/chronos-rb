@@ -118,7 +118,7 @@
   <!-- Output to Pico -->
   <line x1="490" y1="153" x2="530" y2="153" stroke="#333" stroke-width="2"/>
   <circle cx="530" cy="153" r="4" fill="#4ade80" stroke="#333" stroke-width="1.5"/>
-  <text x="545" y="150" font-family="Arial" font-size="9" fill="#333" font-weight="bold">→GP3</text>
+  <text x="545" y="150" font-family="Arial" font-size="9" fill="#333" font-weight="bold">→GP20</text>
   <text x="545" y="162" font-family="Arial" font-size="8" fill="#666">~3V out</text>
 
   <!-- Pin 8 (Q̅) with LED -->

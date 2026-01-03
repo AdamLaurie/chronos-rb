@@ -156,7 +156,7 @@ See the Hardware Guide document for complete schematics. Key connections:
 | GP0 | GPS TX (UART0 TX) | To GPS module RX |
 | GP1 | GPS RX (UART0 RX) | From GPS module TX |
 | GP2 | 1PPS Input | From GPS module PPS |
-| GP3 | 10MHz Input | FE-5680A via comparator |
+| GP20 | 10MHz Input | FE-5680A via comparator |
 | GP4/GP5 | I2C0 (optional) | For OLED display |
 | GP6-9 | Status LEDs | With 330Ω resistors |
 | GP22 | Lock Status | FE-5680A pin 3 via NPN level shifter |
@@ -338,7 +338,7 @@ Pin 7 ─────R1────┬─────Pin 1 (V+)
             Pin 2├────┤            ├─Pin 8──R6───LED──GND
             (+IN)│    │   LT1016   │       (500Ω) (purple)
                  │    │            │
-            Pin 3├────┤            ├─Pin 7──R4───┬───► GP3
+            Pin 3├────┤            ├─Pin 7──R4───┬───► GP20
             (-IN)│    └────────────┘       (100Ω)│    (~3V)
                  │     │   │   │              R5
                 R3    Pin4 Pin5 Pin6         (220Ω)
