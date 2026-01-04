@@ -47,32 +47,27 @@ static double system_clock_correction = 1.0;  /* Correction for system clock err
  * PPS-GATED MEASUREMENT
  *============================================================================*/
 
-/* For PPS-gated measurements, we count 10MHz cycles between PPS pulses */
-static volatile uint32_t pps_gate_count = 0;
-static volatile uint64_t pps_gate_start = 0;
-static volatile bool pps_gate_active = false;
-
 /**
- * Start a PPS-gated frequency measurement
+ * Read frequency count on PPS pulse
  * Called from PPS IRQ handler
+ * PIO counts continuously, we just read and reset on each PPS
  */
 void freq_counter_pps_start(void) {
-    if (pps_gate_active) {
-        /* End previous measurement */
-        pps_gate_count = pio_sm_get_blocking(freq_pio, freq_sm);
-        measurement_ready = true;
-        last_count = pps_gate_count;
-        measurement_count++;
-        g_time_state.last_freq_count = last_count;
-        g_stats.freq_measurements++;
+    /* Read count since last PPS and reset */
+    uint32_t count = freq_counter_read_and_reset(freq_pio, freq_sm);
+
+    /* First reading after init will be invalid, skip it */
+    static bool first_reading = true;
+    if (first_reading) {
+        first_reading = false;
+        return;
     }
-    
-    /* Start new measurement */
-    pps_gate_start = time_us_64();
-    
-    /* Send a very large gate count to PIO (will be interrupted by next PPS) */
-    pio_sm_put(freq_pio, freq_sm, 0xFFFFFFFF);
-    pps_gate_active = true;
+
+    last_count = count;
+    measurement_ready = true;
+    measurement_count++;
+    g_time_state.last_freq_count = count;
+    g_stats.freq_measurements++;
 }
 
 /*============================================================================

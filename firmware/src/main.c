@@ -23,6 +23,7 @@
 #include "ac_freq_monitor.h"
 #include "config.h"
 #include "ota_update.h"
+#include "pps_generator.h"
 
 /*============================================================================
  * GLOBAL VARIABLES
@@ -306,7 +307,11 @@ void chronos_init(void) {
     
     printf("[INIT] Initializing frequency counter...\n");
     freq_counter_init();
-    
+
+    printf("[INIT] Initializing 1PPS generator (10MHz / 10,000,000)...\n");
+    pps_generator_init();
+    pps_generator_start();
+
     printf("[INIT] Initializing time discipline...\n");
     discipline_init();
     

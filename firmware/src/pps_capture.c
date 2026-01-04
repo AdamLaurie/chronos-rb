@@ -96,10 +96,7 @@ static void pps_pio_irq_handler(void) {
     
     /* Update global state */
     g_time_state.pps_count = pps_edge_count;
-    
-    /* Toggle debug output for scope monitoring */
-    gpio_put(GPIO_DEBUG_PPS_OUT, 1);
-    
+
     /* Call the sync handler if we have a valid pulse */
     if (valid) {
         pps_irq_handler();

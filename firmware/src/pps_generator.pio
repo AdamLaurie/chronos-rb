@@ -1,0 +1,66 @@
+;
+; CHRONOS-Rb 1PPS Generator from 10MHz
+;
+; Counts rising edges of 10MHz input to generate 1PPS output.
+; 10,000,000 rising edges = 1 second
+;
+; Pin mapping:
+;   - IN pin 0: 10MHz input (from comparator)
+;   - SET pin 0: 1PPS output pulse
+;
+; To start: push (count-1) to FIFO
+;
+
+.program pps_generator
+
+    pull block              ; Get count-1 from FIFO
+    mov y, osr              ; Store in Y (preserved across wraps)
+
+.wrap_target
+    mov x, y                ; Copy count to X for this second
+
+count_loop:
+    wait 1 pin 0            ; Wait for HIGH
+    wait 0 pin 0            ; Wait for LOW (falling edge)
+    jmp x-- count_loop      ; Decrement X, loop if X != 0
+
+    ; Count complete - generate pulse
+    set pins, 1             ; 1PPS output HIGH
+    irq nowait 0            ; Signal CPU
+    set pins, 0             ; 1PPS output LOW
+.wrap
+
+% c-sdk {
+#include "hardware/gpio.h"
+
+static inline void pps_generator_program_init(PIO pio, uint sm, uint offset,
+                                               uint in_pin, uint out_pin) {
+    // Configure input pin (10MHz)
+    pio_sm_set_consecutive_pindirs(pio, sm, in_pin, 1, false);
+    pio_gpio_init(pio, in_pin);
+
+    // Configure output pin (1PPS)
+    pio_sm_set_consecutive_pindirs(pio, sm, out_pin, 1, true);
+    pio_gpio_init(pio, out_pin);
+    gpio_set_drive_strength(out_pin, GPIO_DRIVE_STRENGTH_4MA);
+
+    pio_sm_config c = pps_generator_program_get_default_config(offset);
+
+    // IN pin base for wait instruction
+    sm_config_set_in_pins(&c, in_pin);
+
+    // SET pin base for 1PPS output
+    sm_config_set_set_pins(&c, out_pin, 1);
+
+    // Run at full system clock speed
+    sm_config_set_clkdiv(&c, 1.0f);
+
+    // Initialize and start
+    pio_sm_init(pio, sm, offset, &c);
+}
+
+static inline void pps_generator_load_count(PIO pio, uint sm, uint32_t count) {
+    // Push count-1 to FIFO to start counting
+    pio_sm_put_blocking(pio, sm, count - 1);
+}
+%}

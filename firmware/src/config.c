@@ -20,9 +20,9 @@
  * FLASH STORAGE CONFIGURATION
  *============================================================================*/
 
-/* Use the last 4KB sector of flash for config storage */
-/* Pico 2 has 4MB flash, so last sector starts at 4MB - 4KB */
-#define FLASH_TARGET_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
+/* Use the reserved filesystem area for config storage */
+/* With 8KB reserved, config goes at 4MB - 8KB to avoid UF2 wraparound issue */
+#define FLASH_TARGET_OFFSET (PICO_FLASH_SIZE_BYTES - (8 * 1024))
 
 /* Pointer to config in flash (read-only) */
 #define FLASH_CONFIG_ADDR   (XIP_BASE + FLASH_TARGET_OFFSET)

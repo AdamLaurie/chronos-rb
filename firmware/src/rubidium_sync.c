@@ -98,10 +98,13 @@ static void change_state(sync_state_t new_state) {
  */
 void pps_irq_handler(void) {
     uint64_t pps_time = get_last_pps_timestamp();
-    
+
     /* Mirror PPS pulse for debugging */
     gpio_put(GPIO_DEBUG_SYNC_PULSE, 1);
-    
+
+    /* Trigger frequency counter measurement on each PPS */
+    freq_counter_pps_start();
+
     state_pps_count++;
     
     /* Calculate offset from expected second boundary */

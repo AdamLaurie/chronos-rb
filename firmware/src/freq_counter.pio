@@ -1,28 +1,17 @@
 ; CHRONOS-Rb Frequency Counter PIO Program
-; 
-; Counts cycles of the 10MHz reference signal from the rubidium oscillator.
-; Uses reciprocal counting - count input cycles during a precise gate time.
 ;
-; The gate time is controlled by the CPU via the TX FIFO.
+; Counts rising edges of the 10MHz reference signal continuously.
+; CPU reads count on each PPS pulse.
 
 .program freq_counter
 
-; Entry point - wait for gate time value from CPU
-.wrap_target
-    pull block              ; Get gate time (in cycles) from FIFO
-    mov x, osr              ; Store in X
-    mov y, null             ; Clear count
+    mov y, null             ; Initialize count to 0
 
+.wrap_target
 count_loop:
     wait 0 pin 0            ; Wait for low
-    wait 1 pin 0 [1]        ; Wait for rising edge (with 1 cycle delay)
-    jmp y-- count_continue  ; Increment count (Y counts down from 0xFFFFFFFF)
-count_continue:
-    jmp x-- count_loop      ; Decrement gate timer
-
-    ; Gate time expired, report count
-    mov isr, ~y             ; Invert Y to get actual count (was counting down)
-    push                    ; Send count to CPU
+    wait 1 pin 0            ; Wait for rising edge
+    jmp y-- count_loop      ; Decrement Y (counts down from 0)
 .wrap
 
 % c-sdk {
@@ -31,21 +20,43 @@ count_continue:
 
 static inline void freq_counter_program_init(PIO pio, uint sm, uint offset, uint pin) {
     pio_sm_config c = freq_counter_program_get_default_config(offset);
-    
+
     // Configure input pin
     sm_config_set_in_pins(&c, pin);
-    
-    // Initialize pin
+
+    // Initialize pin for PIO
     pio_gpio_init(pio, pin);
     gpio_set_dir(pin, GPIO_IN);
-    
+
     // Run at system clock
     sm_config_set_clkdiv(&c, 1.0);
-    
-    // Configure shift registers
-    sm_config_set_in_shift(&c, false, false, 32);
-    
+
     // Load configuration
     pio_sm_init(pio, sm, offset, &c);
+}
+
+// Read current count and reset - call from PPS handler
+static inline uint32_t freq_counter_read_and_reset(PIO pio, uint sm) {
+    // Stop the state machine
+    pio_sm_set_enabled(pio, sm, false);
+
+    // Execute: mov isr, ~y (opcode: 0xa0c9)
+    // This moves inverted Y to ISR
+    pio_sm_exec(pio, sm, 0xa0c9);
+
+    // Execute: push (opcode: 0x8020)
+    pio_sm_exec(pio, sm, 0x8020);
+
+    // Read the count from FIFO
+    uint32_t count = pio_sm_get(pio, sm);
+
+    // Execute: mov y, null (opcode: 0xa043)
+    // This resets Y to 0
+    pio_sm_exec(pio, sm, 0xa043);
+
+    // Restart the state machine
+    pio_sm_set_enabled(pio, sm, true);
+
+    return count;
 }
 %}

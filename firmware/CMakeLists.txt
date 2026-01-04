@@ -31,6 +31,10 @@ endif()
 # Configure FOTA bootloader with encryption
 # Note: Encryption requires pycryptodome: sudo apt install python3-pycryptodome
 set(PFB_AES_KEY "${OTA_AES_KEY}" CACHE STRING "FOTA AES encryption key")
+set(PFB_WITH_IMAGE_ENCRYPTION ON CACHE BOOL "Enable AES encryption for OTA" FORCE)
+
+# Reserve 4KB at end of flash for persistent config storage
+set(PFB_RESERVED_FILESYSTEM_SIZE_KB 4 CACHE STRING "Reserved flash for config")
 
 # Add FOTA bootloader
 add_subdirectory(deps/pico_fota_bootloader)
@@ -45,6 +49,7 @@ add_executable(chronos_rb
     src/ptp_server.c
     src/rubidium_sync.c
     src/pps_capture.c
+    src/pps_generator.c
     src/freq_counter.c
     src/wifi_manager.c
     src/time_discipline.c
@@ -63,6 +68,7 @@ target_compile_definitions(chronos_rb PRIVATE
 
 # Enable PIO for precise timing
 pico_generate_pio_header(chronos_rb ${CMAKE_CURRENT_LIST_DIR}/src/pps_capture.pio)
+pico_generate_pio_header(chronos_rb ${CMAKE_CURRENT_LIST_DIR}/src/pps_generator.pio)
 pico_generate_pio_header(chronos_rb ${CMAKE_CURRENT_LIST_DIR}/src/freq_counter.pio)
 
 target_link_libraries(chronos_rb

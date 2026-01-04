@@ -19,8 +19,8 @@
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
 #define CHRONOS_VERSION_MINOR   0
-#define CHRONOS_VERSION_PATCH   0
-#define CHRONOS_VERSION_STRING  "1.0.0"
+#define CHRONOS_VERSION_PATCH   3
+#define CHRONOS_VERSION_STRING  "1.0.3"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
@@ -245,6 +245,7 @@ bool is_pps_valid(void);
 
 /* Frequency counter */
 void freq_counter_init(void);
+void freq_counter_pps_start(void);
 uint32_t freq_counter_read(void);
 double get_frequency_offset_ppb(void);
 bool freq_counter_signal_present(void);
