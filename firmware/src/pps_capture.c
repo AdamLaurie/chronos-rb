@@ -31,11 +31,9 @@ static uint pps_sm = 0;
 
 /* Timestamp storage */
 static volatile uint64_t pps_timestamp_us = 0;
-static volatile uint32_t pps_timestamp_cycles = 0;
 static volatile uint32_t pps_edge_count = 0;
 
 /* PPS quality metrics */
-static volatile int32_t pps_period_error_ns = 0;
 static volatile uint32_t pps_valid_count = 0;
 static volatile uint32_t pps_invalid_count = 0;
 
@@ -55,17 +53,16 @@ static volatile uint32_t pps_history_index = 0;
  * possible, then do any processing afterward.
  */
 static void pps_pio_irq_handler(void) {
-    /* Read timestamp immediately - this is the critical path */
+    /* Capture timestamp immediately */
     uint64_t now_us = time_us_64();
-    uint32_t now_cycles = timer_hw->timerawl;  /* Lower 32 bits of timer */
-    
+
     /* Clear the IRQ */
     pio_interrupt_clear(pps_pio, 0);
-    
-    /* Calculate period from previous pulse */
+
+    /* Calculate period for coarse validation */
     uint64_t period_us = now_us - pps_timestamp_us;
-    
-    /* Validate the pulse */
+
+    /* Validate the pulse using coarse timing (fine precision from freq_counter) */
     bool valid = false;
     if (pps_edge_count > 0) {
         /* Check if period is within tolerance (1 second ± tolerance) */
@@ -73,25 +70,21 @@ static void pps_pio_irq_handler(void) {
             period_us <= (PPS_NOMINAL_PERIOD_US + PPS_TOLERANCE_US)) {
             valid = true;
             pps_valid_count++;
-            
-            /* Calculate period error in nanoseconds */
-            pps_period_error_ns = (int32_t)(period_us - PPS_NOMINAL_PERIOD_US) * 1000;
         } else {
             pps_invalid_count++;
-            printf("[PPS] Invalid period: %llu us (expected ~%lu us)\n", 
+            printf("[PPS] Invalid period: %llu us (expected ~%lu us)\n",
                    period_us, PPS_NOMINAL_PERIOD_US);
         }
     }
-    
+
     /* Store timestamp */
     pps_timestamp_us = now_us;
-    pps_timestamp_cycles = now_cycles;
     pps_edge_count++;
-    
+
     /* Store in history buffer */
     pps_history[pps_history_index] = now_us;
     pps_history_index = (pps_history_index + 1) % PPS_HISTORY_SIZE;
-    
+
     /* Update global state */
     g_time_state.pps_count = pps_edge_count;
 
@@ -114,8 +107,8 @@ static void pps_pio_irq_handler(void) {
  */
 void pps_capture_init(void) {
     printf("[PPS] Initializing PPS capture on GPIO %d\n", GPIO_PPS_INPUT);
-    
-    /* Try to use PIO for precise capture */
+
+    /* Use PIO for precise capture */
     uint offset = pio_add_program(pps_pio, &pps_capture_program);
     
     /* Initialize the PIO program */
@@ -154,12 +147,14 @@ uint64_t get_last_pps_timestamp(void) {
 }
 
 /**
- * Get the timestamp of the last PPS pulse with cycle precision
+ * Get the timestamp of the last PPS pulse with sub-µs precision from freq_counter
+ * The freq_counter measures 10MHz cycles between PPS edges (100ns resolution)
  */
 void get_last_pps_timestamp_precise(uint64_t *us, uint32_t *cycles) {
     uint32_t irq = save_and_disable_interrupts();
     *us = pps_timestamp_us;
-    *cycles = pps_timestamp_cycles;
+    /* Return freq_counter count as the cycle-precision component */
+    *cycles = g_time_state.last_freq_count;
     restore_interrupts(irq);
 }
 
@@ -172,9 +167,12 @@ uint32_t get_pps_count(void) {
 
 /**
  * Get the last measured PPS period error in nanoseconds
+ * Uses freq_counter which measures 10MHz cycles (100ns resolution)
  */
 int32_t get_pps_period_error_ns(void) {
-    return pps_period_error_ns;
+    /* freq_counter_get_error() returns deviation from 10,000,000 */
+    /* Each count = 100ns */
+    return freq_counter_get_error() * 100;
 }
 
 /**

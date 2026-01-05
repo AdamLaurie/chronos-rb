@@ -35,13 +35,9 @@ static volatile uint32_t edge_count = 0;
  *============================================================================*/
 
 /**
- * GPIO interrupt handler for zero-crossing detection
+ * AC zero-crossing IRQ handler - called from shared GPIO callback
  */
-static void ac_zero_cross_callback(uint gpio, uint32_t events) {
-    if (gpio != GPIO_AC_ZERO_CROSS) {
-        return;
-    }
-
+void ac_zero_cross_irq_handler(void) {
     uint32_t now = time_us_32();
 
     /* Calculate period from previous edge */
@@ -115,11 +111,9 @@ void ac_freq_init(void) {
     gpio_set_dir(GPIO_AC_ZERO_CROSS, GPIO_IN);
     gpio_pull_up(GPIO_AC_ZERO_CROSS);  /* Pull-up, opto pulls low */
 
-    /* Set up interrupt on falling edge (opto pulls low on zero-cross) */
-    gpio_set_irq_enabled_with_callback(GPIO_AC_ZERO_CROSS,
-                                        GPIO_IRQ_EDGE_FALL,
-                                        true,
-                                        &ac_zero_cross_callback);
+    /* Enable interrupt on falling edge (opto pulls low on zero-cross)
+     * Note: Callback is registered in gps_input.c shared handler */
+    gpio_set_irq_enabled(GPIO_AC_ZERO_CROSS, GPIO_IRQ_EDGE_FALL, true);
 
     ac_initialized = true;
     printf("[AC_FREQ] AC frequency monitor initialized on GP%d\n", GPIO_AC_ZERO_CROSS);

@@ -63,6 +63,12 @@ typedef struct {
 void ac_freq_init(void);
 
 /**
+ * AC zero-crossing IRQ handler
+ * Called from shared GPIO callback in gps_input.c
+ */
+void ac_zero_cross_irq_handler(void);
+
+/**
  * Process AC frequency measurements
  * Call from main loop to update averaging
  */

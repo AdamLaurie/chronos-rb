@@ -106,22 +106,19 @@ void pps_irq_handler(void) {
     /* Note: freq_counter_pps_start() is called from pps_capture.c on every edge */
 
     state_pps_count++;
-    
-    /* Calculate offset from expected second boundary */
-    if (last_pps_us > 0) {
-        /* Time since last PPS */
-        uint64_t period = pps_time - last_pps_us;
-        
-        /* Offset from perfect 1 second */
-        int64_t offset_ns = ((int64_t)period - 1000000LL) * 1000LL;
-        
-        /* Update discipline loop */
-        discipline_update(offset_ns);
-        
-        /* Apply correction to subsecond counter */
-        accumulated_offset += offset_ns;
-    }
-    
+
+    /* Get offset from freq_counter which measures 10MHz cycles between PPS edges
+     * This gives 100ns resolution from the rubidium reference itself.
+     * freq_counter_get_error() = deviation from 10,000,000 cycles
+     * Each count = 100ns */
+    int64_t offset_ns = (int64_t)freq_counter_get_error() * 100LL;
+
+    /* Update discipline loop with high-precision offset */
+    discipline_update(offset_ns);
+
+    /* Apply correction to subsecond counter */
+    accumulated_offset += offset_ns;
+
     last_pps_us = pps_time;
     
     /* Increment seconds counter on PPS */
@@ -193,7 +190,16 @@ void rubidium_sync_task(void) {
         }
         last_warmup_time = now;
     }
-    
+
+    /* Set time from GPS if not already set (runs in any state) */
+    if (!epoch_set && gps_has_time()) {
+        uint32_t gps_time = gps_get_unix_time();
+        if (gps_time > 0) {
+            printf("[RB] Setting time from GPS: %lu\n", gps_time);
+            set_time_unix(gps_time);
+        }
+    }
+
     /* State machine */
     uint64_t state_time = (now - state_enter_time) / 1000000;  /* Seconds in state */
     
@@ -211,15 +217,7 @@ void rubidium_sync_task(void) {
                 }
                 change_state(SYNC_STATE_ERROR);
             }
-
-            /* While waiting for Rb, set initial time from GPS if available */
-            if (!epoch_set && gps_has_time()) {
-                uint32_t gps_time = gps_get_unix_time();
-                if (gps_time > 0) {
-                    printf("[RB] Setting initial time from GPS: %lu\n", gps_time);
-                    set_time_unix(gps_time);
-                }
-            }
+            /* GPS time setting handled above state machine */
             break;
             
         case SYNC_STATE_FREQ_CAL:

@@ -22,6 +22,7 @@
 
 #include "chronos_rb.h"
 #include "gps_input.h"
+#include "ac_freq_monitor.h"
 
 /*============================================================================
  * CONFIGURATION
@@ -350,17 +351,26 @@ static void process_nmea_sentence(const char *sentence) {
  *============================================================================*/
 
 /**
- * GPS PPS GPIO interrupt callback
+ * Shared GPIO interrupt callback for all GPIO IRQs
  *
- * Note: This is separate from rubidium PPS which uses PIO interrupts.
- * The Pico allows one GPIO callback per core, but rubidium PPS uses
- * PIO (not GPIO callbacks), so there's no conflict.
+ * Handles:
+ *   - GPS PPS (GP11) - rising edge
+ *   - AC zero crossing (GP19) - falling edge
+ *
+ * Note: Rubidium PPS uses PIO interrupts (not GPIO), so no conflict.
+ * The Pico only allows one GPIO callback per core, so all GPIO IRQs
+ * must be dispatched from this single handler.
  */
-static void gps_pps_gpio_callback(uint gpio, uint32_t events) {
+static void shared_gpio_callback(uint gpio, uint32_t events) {
     if (gpio == GPIO_GPS_PPS_INPUT && (events & GPIO_IRQ_EDGE_RISE)) {
+        /* GPS PPS */
         gps_pps_timestamp = time_us_64();
         gps_pps_count++;
         gps_pps_triggered = true;
+    }
+    if (gpio == GPIO_AC_ZERO_CROSS && (events & GPIO_IRQ_EDGE_FALL)) {
+        /* AC mains zero crossing */
+        ac_zero_cross_irq_handler();
     }
 }
 
@@ -440,11 +450,12 @@ void gps_input_init(void) {
     gpio_set_dir(GPIO_GPS_PPS_INPUT, GPIO_IN);
     gpio_pull_down(GPIO_GPS_PPS_INPUT);
 
-    /* Enable GPIO IRQ for GPS PPS with callback
+    /* Enable GPIO IRQ for GPS PPS with shared callback
+     * This callback also handles AC zero crossing (GP19)
      * Note: Rubidium PPS uses PIO interrupts (not GPIO), so no conflict
      */
     gpio_set_irq_enabled_with_callback(GPIO_GPS_PPS_INPUT, GPIO_IRQ_EDGE_RISE, true,
-                                       gps_pps_gpio_callback);
+                                       shared_gpio_callback);
 
     printf("[GPS] UART1: GP%d (RX from GPS), GP%d (TX to GPS)\n", GPIO_GPS_RX, GPIO_NMEA_TX);
     printf("[GPS] PPS: GP%d (GPIO IRQ callback)\n", GPIO_GPS_PPS_INPUT);

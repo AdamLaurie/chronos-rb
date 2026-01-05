@@ -143,7 +143,7 @@ void discipline_update(int64_t offset_ns) {
     
     /* Check for lock */
     double abs_offset = fabs((double)offset_ns);
-    if (abs_offset < 1000.0) {  /* Within 1 microsecond */
+    if (abs_offset <= 1000.0) {  /* Within 1 microsecond */
         lock_count++;
         if (lock_count > 60) {  /* Locked for 60 consecutive updates */
             if (!is_locked) {
