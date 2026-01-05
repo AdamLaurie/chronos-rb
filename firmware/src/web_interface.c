@@ -108,7 +108,7 @@ static const char HTML_PAGE[] =
 "</style>"
 "</head><body>"
 "<div class='container'>"
-"<h1 class='%s'>CHRONOS-Rb</h1>"
+"<h1 class='%s'>&#9883; CHRONOS-Rb</h1>"
 "<div class='time-display %s'>%s</div>"
 "<div class='nav'><a href='/'>Status</a> <a href='/config'>Config</a> <a href='/ota'>OTA</a></div>"
 "<div class='grid'>"
@@ -953,7 +953,7 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
 
     /* Allocate response buffer */
     static char response[8192];
-    static char html_buf[6000];
+    static char html_buf[12000];
     static char cli_output[1024];
     const char *msg = NULL;
     const char *cli_out = NULL;
