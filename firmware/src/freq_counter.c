@@ -29,6 +29,11 @@ static uint freq_sm = 0;
 /* Expected count for 10MHz over 1 second */
 #define EXPECTED_COUNT 10000000UL
 
+/* PIO latency compensation: cycles lost due to edge detection and loop overhead.
+ * The PIO loses ~9 cycles between detecting PPS rise and starting to count,
+ * plus asymmetry between start/end detection. Measured empirically. */
+#define PIO_LATENCY_COMPENSATION 9
+
 /* Measurement storage */
 static volatile uint32_t last_count = 0;
 static volatile uint32_t measurement_count = 0;
@@ -53,9 +58,10 @@ static void freq_counter_irq_handler(void) {
     /* Clear the IRQ (flag 1, not 0 - to avoid conflict with pps_generator) */
     pio_interrupt_clear(freq_pio, 1);
 
-    /* Read count from FIFO */
-    uint32_t count;
-    if (freq_counter_read(freq_pio, freq_sm, &count)) {
+    /* Read count from FIFO and apply latency compensation */
+    uint32_t raw_count;
+    if (freq_counter_read(freq_pio, freq_sm, &raw_count)) {
+        uint32_t count = raw_count + PIO_LATENCY_COMPENSATION;
         last_count = count;
         measurement_count++;
         new_measurement = true;

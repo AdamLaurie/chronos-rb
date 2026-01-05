@@ -19,8 +19,8 @@
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
 #define CHRONOS_VERSION_MINOR   0
-#define CHRONOS_VERSION_PATCH   8
-#define CHRONOS_VERSION_STRING  "1.0.8"
+#define CHRONOS_VERSION_PATCH   9
+#define CHRONOS_VERSION_STRING  "1.0.9"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
