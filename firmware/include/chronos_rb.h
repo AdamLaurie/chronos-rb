@@ -19,8 +19,8 @@
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
 #define CHRONOS_VERSION_MINOR   0
-#define CHRONOS_VERSION_PATCH   3
-#define CHRONOS_VERSION_STRING  "1.0.3"
+#define CHRONOS_VERSION_PATCH   8
+#define CHRONOS_VERSION_STRING  "1.0.8"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
@@ -28,12 +28,13 @@
  * GPIO PIN DEFINITIONS - Raspberry Pi Pico 2-W
  *============================================================================*/
 
-/* 1PPS Input - derived from 10MHz or external source (active high, ~100µs pulse width) */
-/* Note: Most FE-5680A units do NOT have native 1PPS - must be derived from 10MHz */
-#define GPIO_PPS_INPUT          2       /* GP2 - PIO capture input */
+/* FE-5680A 1PPS Input (active high, from external FE-5680A source) */
+#define GPIO_FE_PPS_INPUT       21      /* GP21 - 1PPS from FE-5680A */
+#define GPIO_PPS_INPUT          GPIO_FE_PPS_INPUT  /* Primary PPS source */
 
-/* 10MHz Reference Input (after comparator, 3.3V LVCMOS) */
-#define GPIO_10MHZ_INPUT        20      /* GP20 - Frequency counter input */
+/* FE-5680A 10MHz Reference Input (after comparator, 3.3V LVCMOS) */
+#define GPIO_FE_10MHZ_INPUT     20      /* GP20 - FE-5680A 10MHz reference */
+#define GPIO_10MHZ_INPUT        GPIO_FE_10MHZ_INPUT  /* Primary 10MHz source */
 
 /* FE-5680A Status/Control Lines */
 #define GPIO_RB_LOCK_STATUS     22      /* GP22 - Rubidium lock indicator (HIGH=locked) */
@@ -243,10 +244,13 @@ void pps_irq_handler(void);
 uint64_t get_last_pps_timestamp(void);
 bool is_pps_valid(void);
 
-/* Frequency counter */
+/* Frequency counter - hardware PPS validation */
 void freq_counter_init(void);
-void freq_counter_pps_start(void);
-uint32_t freq_counter_read(void);
+void freq_counter_pps_start(void);           /* Legacy: no-op, PIO handles automatically */
+uint32_t freq_counter_read_legacy(void);     /* Get last count */
+uint32_t freq_counter_read_count(void);      /* Get last count (preferred) */
+int32_t freq_counter_get_error(void);        /* Get deviation from 10,000,000 */
+bool freq_counter_new_measurement(void);     /* Check if new measurement available */
 double get_frequency_offset_ppb(void);
 bool freq_counter_signal_present(void);
 

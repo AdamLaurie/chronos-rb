@@ -262,8 +262,8 @@ static void cmd_pins(void) {
     cli_printf("\n");
 
     cli_printf("Inputs:\n");
-    cli_printf("  GP%-2d  1PPS Input         From 10MHz divider or external source\n", GPIO_PPS_INPUT);
-    cli_printf("  GP%-2d  10MHz Input        From comparator (FE-5680A)\n", GPIO_10MHZ_INPUT);
+    cli_printf("  GP%-2d  FE-5680A 1PPS      From external FE-5680A\n", GPIO_FE_PPS_INPUT);
+    cli_printf("  GP%-2d  FE-5680A 10MHz    From comparator circuit\n", GPIO_FE_10MHZ_INPUT);
     cli_printf("  GP%-2d  Rb Lock Status     HIGH=locked (FE-5680A pin 3 via NPN)\n", GPIO_RB_LOCK_STATUS);
     cli_printf("  GP%-2d  AC Zero-Cross      Mains frequency monitor\n", GPIO_AC_ZERO_CROSS);
     cli_printf("\n");

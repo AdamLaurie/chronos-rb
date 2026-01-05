@@ -135,6 +135,15 @@ add_custom_target(flash-initial
     COMMENT "Flashing bootloader + application (for new devices)"
 )
 
+# OTA update target
+# Usage: make fota [FOTA_HOST=192.168.x.x]
+set(FOTA_HOST "172.16.13.40" CACHE STRING "Target device IP for OTA updates")
+add_custom_target(fota
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/ota.sh ${CMAKE_BINARY_DIR}/chronos_rb_fota_image_encrypted.bin ${FOTA_HOST}
+    DEPENDS chronos_rb
+    COMMENT "OTA firmware update to ${FOTA_HOST}"
+)
+
 # Print OTA update file location after build
 add_custom_command(TARGET chronos_rb POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E echo ""

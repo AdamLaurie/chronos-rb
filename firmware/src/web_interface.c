@@ -530,6 +530,7 @@ static int generate_json_status(char *buf, size_t len) {
         "\"freq_offset_ppb\":%.3f,"
         "\"pps_count\":%lu,"
         "\"freq_count\":%lu,"
+        "\"freq_measurements\":%lu,"
         "\"ntp_requests\":%lu,"
         "\"ptp_syncs\":%lu,"
         "\"ac_mains\":{"
@@ -551,6 +552,7 @@ static int generate_json_status(char *buf, size_t len) {
         (double)g_time_state.frequency_offset,
         (unsigned long)g_time_state.pps_count,
         (unsigned long)g_time_state.last_freq_count,
+        (unsigned long)g_stats.freq_measurements,
         (unsigned long)g_stats.ntp_requests,
         (unsigned long)g_stats.ptp_sync_sent,
         ac->signal_present ? "true" : "false",

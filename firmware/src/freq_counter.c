@@ -1,9 +1,10 @@
 /**
  * CHRONOS-Rb Frequency Counter Module
- * 
- * Measures the 10MHz reference frequency from the FE-5680A rubidium oscillator.
- * Uses PIO-based reciprocal counting for high precision.
- * 
+ *
+ * Hardware-only validation of PPS against 10MHz reference.
+ * PIO counts 10MHz edges between PPS pulses - should be exactly 10,000,000.
+ * No CPU involvement in timing-critical path.
+ *
  * Copyright (c) 2025 - Open Source Hardware Project
  * License: MIT
  */
@@ -12,9 +13,7 @@
 #include <math.h>
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
-#include "hardware/dma.h"
-#include "hardware/timer.h"
-#include "hardware/clocks.h"
+#include "hardware/irq.h"
 
 #include "chronos_rb.h"
 #include "freq_counter.pio.h"
@@ -23,51 +22,65 @@
  * CONFIGURATION
  *============================================================================*/
 
-/* Use PIO1 for frequency counter (PIO0 used for PPS) */
+/* Use PIO1 SM0 for frequency counter */
 static PIO freq_pio = pio1;
 static uint freq_sm = 0;
-static uint freq_dma_chan = 0;
 
-/* Measurement state */
+/* Expected count for 10MHz over 1 second */
+#define EXPECTED_COUNT 10000000UL
+
+/* Measurement storage */
 static volatile uint32_t last_count = 0;
 static volatile uint32_t measurement_count = 0;
-static volatile bool measurement_ready = false;
-static volatile uint64_t measurement_start_time = 0;
-static volatile uint64_t measurement_end_time = 0;
+static volatile bool new_measurement = false;
+static volatile uint64_t last_measurement_time = 0;  /* For timeout detection */
 
-/* Frequency offset tracking */
-static double freq_offset_ppb = 0.0;
-static double freq_offset_filtered = 0.0;
-#define FREQ_FILTER_ALPHA 0.1  /* Low-pass filter coefficient */
-
-/* Calibration */
-static double system_clock_correction = 1.0;  /* Correction for system clock error */
+/* Statistics */
+static volatile int32_t count_error = 0;        /* Deviation from expected */
+static volatile int32_t max_error = 0;
+static volatile int32_t min_error = 0;
+static volatile uint32_t valid_measurements = 0;
+static volatile uint32_t invalid_measurements = 0;
 
 /*============================================================================
- * PPS-GATED MEASUREMENT
+ * IRQ HANDLER
  *============================================================================*/
 
 /**
- * Read frequency count on PPS pulse
- * Called from PPS IRQ handler
- * PIO counts continuously, we just read and reset on each PPS
+ * PIO IRQ handler - called when measurement is ready
  */
-void freq_counter_pps_start(void) {
-    /* Read count since last PPS and reset */
-    uint32_t count = freq_counter_read_and_reset(freq_pio, freq_sm);
+static void freq_counter_irq_handler(void) {
+    /* Clear the IRQ (flag 1, not 0 - to avoid conflict with pps_generator) */
+    pio_interrupt_clear(freq_pio, 1);
 
-    /* First reading after init will be invalid, skip it */
-    static bool first_reading = true;
-    if (first_reading) {
-        first_reading = false;
-        return;
+    /* Read count from FIFO */
+    uint32_t count;
+    if (freq_counter_read(freq_pio, freq_sm, &count)) {
+        last_count = count;
+        measurement_count++;
+        new_measurement = true;
+        last_measurement_time = time_us_64();
+
+        /* Calculate error from expected */
+        count_error = (int32_t)count - (int32_t)EXPECTED_COUNT;
+
+        /* Update statistics */
+        if (measurement_count > 1) {  /* Skip first measurement */
+            if (count_error > max_error) max_error = count_error;
+            if (count_error < min_error) min_error = count_error;
+
+            /* Check if within tolerance (±10 cycles = ±1µs) */
+            if (count_error >= -10 && count_error <= 10) {
+                valid_measurements++;
+            } else {
+                invalid_measurements++;
+            }
+        }
+
+        /* Update global state */
+        g_time_state.last_freq_count = count;
+        g_stats.freq_measurements = measurement_count;
     }
-
-    last_count = count;
-    measurement_ready = true;
-    measurement_count++;
-    g_time_state.last_freq_count = count;
-    g_stats.freq_measurements++;
 }
 
 /*============================================================================
@@ -78,151 +91,83 @@ void freq_counter_pps_start(void) {
  * Initialize the frequency counter
  */
 void freq_counter_init(void) {
-    printf("[FREQ] Initializing frequency counter on GPIO %d\n", GPIO_10MHZ_INPUT);
-    
+    printf("[FREQ] Initializing hardware frequency counter\n");
+    printf("[FREQ] 10MHz input: GPIO %d, PPS input: GPIO %d\n",
+           GPIO_10MHZ_INPUT, GPIO_PPS_INPUT);
+
     /* Add PIO program */
     uint offset = pio_add_program(freq_pio, &freq_counter_program);
-    
-    /* Initialize PIO state machine */
-    freq_counter_program_init(freq_pio, freq_sm, offset, GPIO_10MHZ_INPUT);
-    
+
+    /* Initialize PIO state machine with both pins */
+    freq_counter_program_init(freq_pio, freq_sm, offset,
+                               GPIO_10MHZ_INPUT, GPIO_PPS_INPUT);
+
+    /* Configure IRQ for measurement notification (using interrupt flag 1) */
+    pio_set_irq0_source_enabled(freq_pio, pis_interrupt1, true);
+    irq_set_exclusive_handler(PIO1_IRQ_0, freq_counter_irq_handler);
+    irq_set_enabled(PIO1_IRQ_0, true);
+
     /* Start the state machine */
     pio_sm_set_enabled(freq_pio, freq_sm, true);
-    
-    printf("[FREQ] PIO counter initialized, SM %d at offset %d\n", freq_sm, offset);
-    printf("[FREQ] Expected count per second: %lu\n", REF_CLOCK_HZ);
+
+    printf("[FREQ] PIO counter started, expected count: %lu\n", EXPECTED_COUNT);
+    printf("[FREQ] Waiting for PPS signal...\n");
 }
 
 /*============================================================================
- * MEASUREMENT FUNCTIONS
+ * PUBLIC API
  *============================================================================*/
-
-/**
- * Start a timed frequency measurement
- * @param gate_time_ms Gate time in milliseconds
- */
-void freq_counter_start_measurement(uint32_t gate_time_ms) {
-    /* Calculate gate count based on system clock */
-    uint32_t sys_clk = clock_get_hz(clk_sys);
-    uint32_t gate_cycles = (sys_clk / 1000) * gate_time_ms;
-    
-    /* Apply system clock correction if calibrated */
-    gate_cycles = (uint32_t)(gate_cycles * system_clock_correction);
-    
-    measurement_start_time = time_us_64();
-    measurement_ready = false;
-    
-    /* Send gate count to PIO */
-    pio_sm_put(freq_pio, freq_sm, gate_cycles);
-}
-
-/**
- * Check if a measurement is complete
- */
-bool freq_counter_measurement_ready(void) {
-    if (!measurement_ready && !pio_sm_is_rx_fifo_empty(freq_pio, freq_sm)) {
-        last_count = pio_sm_get(freq_pio, freq_sm);
-        measurement_end_time = time_us_64();
-        measurement_ready = true;
-        measurement_count++;
-        g_time_state.last_freq_count = last_count;
-        g_stats.freq_measurements++;
-    }
-    return measurement_ready;
-}
 
 /**
  * Get the last frequency count
  */
-uint32_t freq_counter_read(void) {
+uint32_t freq_counter_read_count(void) {
     return last_count;
 }
 
 /**
- * Calculate frequency in Hz from last measurement
+ * Check if a new measurement is available
  */
-double freq_counter_get_frequency(void) {
-    if (!measurement_ready || measurement_end_time <= measurement_start_time) {
-        return 0.0;
+bool freq_counter_new_measurement(void) {
+    if (new_measurement) {
+        new_measurement = false;
+        return true;
     }
-    
-    double gate_time_s = (measurement_end_time - measurement_start_time) / 1e6;
-    return (double)last_count / gate_time_s;
+    return false;
 }
 
 /**
  * Get frequency offset in parts per billion (ppb)
- * Positive = faster than nominal, Negative = slower
  */
 double get_frequency_offset_ppb(void) {
-    if (!measurement_ready) {
-        return freq_offset_filtered;
-    }
-    
-    /* Calculate offset from nominal */
-    double measured = freq_counter_get_frequency();
-    double nominal = (double)REF_CLOCK_HZ;
-    
-    if (measured <= 0.0) {
+    if (last_count == 0) {
         return 0.0;
     }
-    
-    freq_offset_ppb = ((measured - nominal) / nominal) * 1e9;
-    
-    /* Apply low-pass filter */
-    freq_offset_filtered = (FREQ_FILTER_ALPHA * freq_offset_ppb) + 
-                           ((1.0 - FREQ_FILTER_ALPHA) * freq_offset_filtered);
-    
-    g_time_state.frequency_offset = freq_offset_filtered;
-    
-    return freq_offset_filtered;
+
+    /* Calculate ppb offset from nominal */
+    double offset = ((double)last_count - (double)EXPECTED_COUNT) /
+                    (double)EXPECTED_COUNT * 1e9;
+
+    g_time_state.frequency_offset = offset;
+    return offset;
 }
 
 /**
- * Get raw frequency offset (unfiltered)
+ * Get the count error (deviation from 10,000,000)
  */
-double get_frequency_offset_ppb_raw(void) {
-    return freq_offset_ppb;
+int32_t freq_counter_get_error(void) {
+    return count_error;
 }
 
 /**
- * Calibrate the system clock using the rubidium reference
- * This should be called after the rubidium is locked and stable
+ * Get error statistics
  */
-void freq_counter_calibrate_sysclk(void) {
-    printf("[FREQ] Calibrating system clock against Rb reference...\n");
-    
-    /* Take multiple measurements and average */
-    double sum = 0.0;
-    int valid_count = 0;
-    
-    for (int i = 0; i < 10; i++) {
-        freq_counter_start_measurement(1000);  /* 1 second gate */
-        
-        /* Wait for measurement */
-        while (!freq_counter_measurement_ready()) {
-            sleep_ms(10);
-        }
-        
-        double freq = freq_counter_get_frequency();
-        if (freq > 9000000 && freq < 11000000) {  /* Sanity check */
-            sum += freq;
-            valid_count++;
-            printf("[FREQ] Sample %d: %.3f Hz\n", i + 1, freq);
-        }
-        
-        sleep_ms(100);
-    }
-    
-    if (valid_count >= 5) {
-        double avg_freq = sum / valid_count;
-        system_clock_correction = (double)REF_CLOCK_HZ / avg_freq;
-        printf("[FREQ] System clock correction factor: %.9f\n", system_clock_correction);
-        printf("[FREQ] Measured average: %.3f Hz, Nominal: %lu Hz\n", 
-               avg_freq, REF_CLOCK_HZ);
-    } else {
-        printf("[FREQ] Calibration failed - insufficient valid samples\n");
-    }
+void freq_counter_get_stats(int32_t *min_err, int32_t *max_err,
+                            uint32_t *valid, uint32_t *invalid) {
+    if (min_err) *min_err = min_error;
+    if (max_err) *max_err = max_error;
+    if (valid) *valid = valid_measurements;
+    if (invalid) *invalid = invalid_measurements;
 }
 
 /**
@@ -233,34 +178,50 @@ uint32_t freq_counter_get_measurement_count(void) {
 }
 
 /**
- * Check if the 10MHz signal is present
+ * Check if 10MHz signal is present (based on recent valid measurements)
  */
 bool freq_counter_signal_present(void) {
-    /* Quick check - look for edges on the input */
-    uint32_t start = time_us_32();
-    int edges = 0;
-    bool last_state = gpio_get(GPIO_10MHZ_INPUT);
-    
-    while (time_us_32() - start < 1000) {  /* Check for 1ms */
-        bool state = gpio_get(GPIO_10MHZ_INPUT);
-        if (state != last_state) {
-            edges++;
-            last_state = state;
-            if (edges > 10) {
-                return true;  /* Found signal */
-            }
-        }
+    /* Signal is present if we have recent valid measurements */
+    if (measurement_count == 0) {
+        return false;  /* Never received a measurement */
     }
-    
-    return (edges > 5);  /* Need at least 5 edges in 1ms for 10MHz */
+
+    /* Check if measurement is recent (within last 2 seconds) */
+    uint64_t now = time_us_64();
+    uint64_t age = now - last_measurement_time;
+    if (age > 2000000) {
+        return false;  /* Measurement is stale - signal lost */
+    }
+
+    /* Check if count is reasonable (within 10% of 10MHz) */
+    return (last_count > 9000000 && last_count < 11000000);
 }
 
 /**
- * Get the last measurement gate time in microseconds
+ * Reset statistics
  */
-uint64_t freq_counter_get_gate_time_us(void) {
-    if (measurement_end_time > measurement_start_time) {
-        return measurement_end_time - measurement_start_time;
-    }
-    return 0;
+void freq_counter_reset_stats(void) {
+    max_error = 0;
+    min_error = 0;
+    valid_measurements = 0;
+    invalid_measurements = 0;
+}
+
+/*============================================================================
+ * LEGACY API (for compatibility)
+ *============================================================================*/
+
+/**
+ * Legacy read function - returns last count
+ * Note: Name differs from PIO inline function freq_counter_read(pio, sm, count)
+ */
+uint32_t freq_counter_read_legacy(void) {
+    return last_count;
+}
+
+/**
+ * Legacy PPS start function - now a no-op since PIO handles everything
+ */
+void freq_counter_pps_start(void) {
+    /* No-op: PIO automatically captures on PPS edge */
 }

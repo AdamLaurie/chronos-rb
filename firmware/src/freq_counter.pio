@@ -1,62 +1,94 @@
 ; CHRONOS-Rb Frequency Counter PIO Program
 ;
-; Counts rising edges of the 10MHz reference signal continuously.
-; CPU reads count on each PPS pulse.
+; Hardware-only PPS validation against 10MHz reference.
+; Counts 10MHz edges between PPS pulses - should be exactly 10,000,000.
+;
+; Pin mapping:
+;   - IN pin 0: 10MHz input (directly from comparator)
+;   - JMP pin: PPS input (directly from PPS source)
+;
+; Pins do NOT need to be consecutive - uses separate pin configs.
+;
+; Operation:
+;   1. Wait for PPS rising edge (using jmp pin polling)
+;   2. Count 10MHz edges until next PPS rising edge
+;   3. Push count to FIFO
+;   4. Repeat
+;
+; CPU just reads counts from FIFO - no timing-critical involvement.
+; Expected count: exactly 10,000,000 if signals are phase-locked.
 
 .program freq_counter
 
-    mov y, null             ; Initialize count to 0
-
 .wrap_target
+    ; Wait for PPS to be low (so we can detect rising edge)
+wait_pps_low:
+    jmp pin wait_pps_low    ; Loop while PPS is high
+
+    ; Wait for PPS rising edge
+wait_pps_rise:
+    jmp pin pps_rose        ; Exit when PPS goes high
+    jmp wait_pps_rise       ; Keep polling
+
+pps_rose:
+    ; PPS just went high - start counting
+    mov x, ~null            ; X = 0xFFFFFFFF (count down from max)
+
+    ; Wait for PPS to go low again (end of pulse)
+wait_pps_low2:
+    jmp pin wait_pps_low2   ; Loop while PPS is still high
+
 count_loop:
-    wait 0 pin 0            ; Wait for low
-    wait 1 pin 0            ; Wait for rising edge
-    jmp y-- count_loop      ; Decrement Y (counts down from 0)
+    ; Check if next PPS pulse arrived (gate end)
+    jmp pin gate_done       ; If PPS high, measurement complete
+
+    ; Wait for 10MHz rising edge and count it
+    wait 0 pin 0            ; Wait for 10MHz low
+    wait 1 pin 0            ; Wait for 10MHz high
+    jmp x-- count_loop      ; Decrement X and loop (always jumps for <4B edges)
+
+gate_done:
+    ; Push count to FIFO for CPU to read
+    mov isr, ~x             ; Invert X to get positive count
+    push noblock
+
+    ; Signal CPU using IRQ flag 1 (flag 0 used by pps_generator)
+    irq nowait 1
 .wrap
 
 % c-sdk {
 #include "hardware/clocks.h"
 #include "hardware/gpio.h"
 
-static inline void freq_counter_program_init(PIO pio, uint sm, uint offset, uint pin) {
+static inline void freq_counter_program_init(PIO pio, uint sm, uint offset,
+                                              uint mhz_pin, uint pps_pin) {
     pio_sm_config c = freq_counter_program_get_default_config(offset);
 
-    // Configure input pin
-    sm_config_set_in_pins(&c, pin);
+    // IN pin for 10MHz input (used by wait instructions)
+    sm_config_set_in_pins(&c, mhz_pin);
 
-    // Initialize pin for PIO
-    pio_gpio_init(pio, pin);
-    gpio_set_dir(pin, GPIO_IN);
+    // JMP pin for PPS input (used by jmp pin instructions)
+    sm_config_set_jmp_pin(&c, pps_pin);
 
-    // Run at system clock
+    // For input pins, PIOs can read GPIO state regardless of function select.
+    // Don't call pio_gpio_init or gpio_init - they change function select
+    // which can conflict with other modules using the same pins.
+    // Just ensure pins are configured as inputs by the modules that own them.
+
+    // Run at system clock for maximum speed
     sm_config_set_clkdiv(&c, 1.0);
 
     // Load configuration
     pio_sm_init(pio, sm, offset, &c);
 }
 
-// Read current count and reset - call from PPS handler
-static inline uint32_t freq_counter_read_and_reset(PIO pio, uint sm) {
-    // Stop the state machine
-    pio_sm_set_enabled(pio, sm, false);
-
-    // Execute: mov isr, ~y (opcode: 0xa0c9)
-    // This moves inverted Y to ISR
-    pio_sm_exec(pio, sm, 0xa0c9);
-
-    // Execute: push (opcode: 0x8020)
-    pio_sm_exec(pio, sm, 0x8020);
-
-    // Read the count from FIFO
-    uint32_t count = pio_sm_get(pio, sm);
-
-    // Execute: mov y, null (opcode: 0xa043)
-    // This resets Y to 0
-    pio_sm_exec(pio, sm, 0xa043);
-
-    // Restart the state machine
-    pio_sm_set_enabled(pio, sm, true);
-
-    return count;
+// Read frequency count from FIFO (non-blocking)
+// Returns true if a measurement was available
+static inline bool freq_counter_read(PIO pio, uint sm, uint32_t *count) {
+    if (pio_sm_is_rx_fifo_empty(pio, sm)) {
+        return false;
+    }
+    *count = pio_sm_get(pio, sm);
+    return true;
 }
 %}

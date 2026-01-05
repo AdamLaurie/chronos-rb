@@ -102,8 +102,7 @@ void pps_irq_handler(void) {
     /* Mirror PPS pulse for debugging */
     gpio_put(GPIO_DEBUG_SYNC_PULSE, 1);
 
-    /* Trigger frequency counter measurement on each PPS */
-    freq_counter_pps_start();
+    /* Note: freq_counter_pps_start() is called from pps_capture.c on every edge */
 
     state_pps_count++;
     
