@@ -32,7 +32,6 @@ static uint pps_sm = 0;
 /* Timestamp storage */
 static volatile uint64_t pps_timestamp_us = 0;
 static volatile uint32_t pps_timestamp_cycles = 0;
-static volatile uint64_t prev_pps_timestamp_us = 0;
 static volatile uint32_t pps_edge_count = 0;
 
 /* PPS quality metrics */
@@ -64,7 +63,7 @@ static void pps_pio_irq_handler(void) {
     pio_interrupt_clear(pps_pio, 0);
     
     /* Calculate period from previous pulse */
-    uint64_t period_us = now_us - prev_pps_timestamp_us;
+    uint64_t period_us = now_us - pps_timestamp_us;
     
     /* Validate the pulse */
     bool valid = false;
@@ -85,7 +84,6 @@ static void pps_pio_irq_handler(void) {
     }
     
     /* Store timestamp */
-    prev_pps_timestamp_us = pps_timestamp_us;
     pps_timestamp_us = now_us;
     pps_timestamp_cycles = now_cycles;
     pps_edge_count++;
