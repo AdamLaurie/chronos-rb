@@ -17,6 +17,10 @@
 #include "hardware/sync.h"
 
 #include "chronos_rb.h"
+#include "gps_input.h"
+
+/* Forward declaration */
+void set_time_unix(uint32_t unix_time);
 
 /*============================================================================
  * STATE MACHINE
@@ -99,9 +103,6 @@ static void change_state(sync_state_t new_state) {
 void pps_irq_handler(void) {
     uint64_t pps_time = get_last_pps_timestamp();
 
-    /* Mirror PPS pulse for debugging */
-    gpio_put(GPIO_DEBUG_SYNC_PULSE, 1);
-
     /* Note: freq_counter_pps_start() is called from pps_capture.c on every edge */
 
     state_pps_count++;
@@ -130,9 +131,6 @@ void pps_irq_handler(void) {
     /* Update global time state */
     g_time_state.current_time.seconds = current_seconds;
     g_time_state.current_time.fraction = 0;
-    
-    /* Clear debug pulse */
-    gpio_put(GPIO_DEBUG_SYNC_PULSE, 0);
 }
 
 /*============================================================================
@@ -207,7 +205,20 @@ void rubidium_sync_task(void) {
                 change_state(SYNC_STATE_FREQ_CAL);
             } else if (state_time > 600) {  /* 10 minute timeout */
                 printf("[RB] ERROR: Rubidium failed to lock within 10 minutes\n");
+                /* Check if GPS is available as fallback */
+                if (gps_has_time() && gps_pps_valid()) {
+                    printf("[RB] GPS available as fallback time source\n");
+                }
                 change_state(SYNC_STATE_ERROR);
+            }
+
+            /* While waiting for Rb, set initial time from GPS if available */
+            if (!epoch_set && gps_has_time()) {
+                uint32_t gps_time = gps_get_unix_time();
+                if (gps_time > 0) {
+                    printf("[RB] Setting initial time from GPS: %lu\n", gps_time);
+                    set_time_unix(gps_time);
+                }
             }
             break;
             
@@ -295,12 +306,23 @@ void rubidium_sync_task(void) {
         case SYNC_STATE_HOLDOVER:
             /* Running on stored frequency offset */
             g_time_state.time_valid = (state_time < 3600);  /* Valid for 1 hour */
-            
+
             if (is_pps_valid() && rb_locked) {
                 printf("[RB] PPS and Rb lock restored, returning to fine sync\n");
                 change_state(SYNC_STATE_FINE);
             }
-            
+
+            /* Use GPS PPS as backup during holdover if available */
+            if (!is_pps_valid() && gps_pps_valid()) {
+                static uint32_t last_gps_pps_report = 0;
+                if (now / 1000000 - last_gps_pps_report >= 60) {
+                    printf("[RB] Using GPS PPS as backup time source\n");
+                    last_gps_pps_report = now / 1000000;
+                }
+                /* Extend holdover validity when GPS PPS is available */
+                g_time_state.time_valid = (state_time < 7200);  /* 2 hours with GPS */
+            }
+
             if (state_time > 86400) {  /* 24 hours */
                 printf("[RB] Extended holdover, time may be inaccurate\n");
                 change_state(SYNC_STATE_ERROR);
@@ -310,11 +332,20 @@ void rubidium_sync_task(void) {
         case SYNC_STATE_ERROR:
             /* Wait for conditions to improve */
             g_time_state.time_valid = false;
-            
+
             if (rb_locked && is_pps_valid()) {
                 printf("[RB] Conditions restored, restarting sync\n");
                 discipline_reset();
                 change_state(SYNC_STATE_FREQ_CAL);
+            }
+
+            /* If GPS has valid time and PPS, we can provide degraded service */
+            if (gps_has_time() && gps_pps_valid()) {
+                static uint32_t last_gps_error_report = 0;
+                if (now / 1000000 - last_gps_error_report >= 300) {  /* Every 5 min */
+                    printf("[RB] GPS available - degraded stratum 2 service possible\n");
+                    last_gps_error_report = now / 1000000;
+                }
             }
             break;
     }

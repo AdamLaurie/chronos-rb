@@ -33,6 +33,7 @@
 #include "roughtime.h"
 #include "gptp.h"
 #include "nts.h"
+#include "gps_input.h"
 
 /*============================================================================
  * GLOBAL VARIABLES
@@ -76,19 +77,14 @@ void gpio_init_all(void) {
     gpio_set_dir(GPIO_RB_LOCK_STATUS, GPIO_IN);
     /* External pull-up via NPN collector resistor - no internal pull needed */
     
-    /* Initialize optional enable output */
-    gpio_init(GPIO_RB_ENABLE);
-    gpio_set_dir(GPIO_RB_ENABLE, GPIO_OUT);
-    gpio_put(GPIO_RB_ENABLE, 1);  /* Enable by default */
-    
+    /* Note: GP5 now used for GPS UART RX, not Rb enable (always enabled) */
+
     /* Initialize debug outputs */
     gpio_init(GPIO_DEBUG_PPS_OUT);
     gpio_set_dir(GPIO_DEBUG_PPS_OUT, GPIO_OUT);
     gpio_put(GPIO_DEBUG_PPS_OUT, 0);
-    
-    gpio_init(GPIO_DEBUG_SYNC_PULSE);
-    gpio_set_dir(GPIO_DEBUG_SYNC_PULSE, GPIO_OUT);
-    gpio_put(GPIO_DEBUG_SYNC_PULSE, 0);
+
+    /* Note: GPIO_GPS_PPS_INPUT (GP11) is initialized by gps_input_init() */
     
     /* Initialize interval pulse outputs */
     gpio_init(GPIO_PULSE_500MS);
@@ -351,21 +347,27 @@ void chronos_init(void) {
     printf("[INIT] Initializing radio timecode outputs...\n");
     radio_timecode_init();
 
-    /* Apply RF and NMEA settings from config */
+    printf("[INIT] Initializing GPS receiver input...\n");
+    gps_input_init();
+
+    /* Apply RF, NMEA, and GPS settings from config */
     {
         config_t *cfg = config_get();
-        printf("[INIT] Applying RF/NMEA settings from config...\n");
+        printf("[INIT] Applying RF/NMEA/GPS settings from config...\n");
         radio_timecode_enable(RADIO_DCF77, cfg->rf_dcf77_enabled);
         radio_timecode_enable(RADIO_WWVB, cfg->rf_wwvb_enabled);
         radio_timecode_enable(RADIO_JJY40, cfg->rf_jjy40_enabled);
         radio_timecode_enable(RADIO_JJY60, cfg->rf_jjy60_enabled);
         nmea_output_enable(cfg->nmea_enabled);
-        printf("[INIT]   DCF77: %s, WWVB: %s, JJY40: %s, JJY60: %s, NMEA: %s\n",
+        gps_enable(cfg->gps_enabled);
+        printf("[INIT]   DCF77: %s, WWVB: %s, JJY40: %s, JJY60: %s\n",
                cfg->rf_dcf77_enabled ? "ON" : "OFF",
                cfg->rf_wwvb_enabled ? "ON" : "OFF",
                cfg->rf_jjy40_enabled ? "ON" : "OFF",
-               cfg->rf_jjy60_enabled ? "ON" : "OFF",
-               cfg->nmea_enabled ? "ON" : "OFF");
+               cfg->rf_jjy60_enabled ? "ON" : "OFF");
+        printf("[INIT]   NMEA: %s, GPS: %s\n",
+               cfg->nmea_enabled ? "ON" : "OFF",
+               cfg->gps_enabled ? "ON" : "OFF");
     }
 
     /* IRIG-B disabled - causes crashes, needs debugging
@@ -574,6 +576,9 @@ int main(void) {
         nmea_output_task();
         radio_timecode_task();
         /* irig_b_task(); - disabled, crashes */
+
+        /* GPS input task */
+        gps_input_task();
         
         /* Update status LEDs */
         update_status_leds();

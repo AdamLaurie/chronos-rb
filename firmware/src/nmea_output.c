@@ -8,7 +8,7 @@
  *   $GPZDA - Time & Date
  *   $GPRMC - Recommended Minimum (with position placeholder)
  *
- * UART: 4800 baud, 8N1 (standard GPS) on UART1
+ * UART: 9600 baud, 8N1 on UART1 (shared with GPS input)
  *
  * Copyright (c) 2025 - Open Source Hardware Project
  * License: MIT
@@ -30,7 +30,7 @@
 #define NMEA_UART           uart1
 #define NMEA_UART_TX        28      /* GP28 - UART1 TX */
 #define NMEA_UART_RX        -1      /* Not used (output only) */
-#define NMEA_BAUD_RATE      4800    /* Standard GPS baud rate */
+#define NMEA_BAUD_RATE      9600    /* Shared with GPS input */
 
 /* NTP epoch offset */
 #define NTP_UNIX_OFFSET     2208988800UL

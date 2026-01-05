@@ -90,6 +90,9 @@ static void config_set_defaults(void) {
 
     /* NMEA output - enabled by default */
     current_config.nmea_enabled = true;
+
+    /* GPS receiver - enabled by default */
+    current_config.gps_enabled = true;
 }
 
 /**
@@ -100,8 +103,8 @@ static bool config_validate(const config_t *cfg) {
         return false;
     }
 
-    /* Accept current version or previous version for migration */
-    if (cfg->version != CONFIG_VERSION && cfg->version != 1) {
+    /* Accept current version or previous versions for migration */
+    if (cfg->version != CONFIG_VERSION && cfg->version != 1 && cfg->version != 2) {
         return false;
     }
 
@@ -128,6 +131,12 @@ static void config_migrate(void) {
         current_config.rf_jjy40_enabled = true;
         current_config.rf_jjy60_enabled = true;
         current_config.nmea_enabled = true;
+        current_config.version = 2;
+    }
+    if (current_config.version == 2) {
+        printf("[CONFIG] Migrating from v2 to v3...\n");
+        /* v2 -> v3: Add GPS settings with default */
+        current_config.gps_enabled = true;
         current_config.version = CONFIG_VERSION;
     }
 }
@@ -273,6 +282,10 @@ void config_print(void) {
 
     printf("Serial Outputs:\n");
     printf("  NMEA:            %s\n", current_config.nmea_enabled ? "Enabled" : "Disabled");
+    printf("\n");
+
+    printf("GPS Receiver:\n");
+    printf("  GPS Input:       %s\n", current_config.gps_enabled ? "Enabled" : "Disabled");
     printf("\n");
 
     printf("Config Info:\n");

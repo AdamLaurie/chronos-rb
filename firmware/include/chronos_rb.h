@@ -18,9 +18,9 @@
  * VERSION INFORMATION
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
-#define CHRONOS_VERSION_MINOR   2
-#define CHRONOS_VERSION_PATCH   4
-#define CHRONOS_VERSION_STRING  "1.2.4"
+#define CHRONOS_VERSION_MINOR   3
+#define CHRONOS_VERSION_PATCH   0
+#define CHRONOS_VERSION_STRING  "1.3.0"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
@@ -38,7 +38,6 @@
 
 /* FE-5680A Status/Control Lines */
 #define GPIO_RB_LOCK_STATUS     22      /* GP22 - Rubidium lock indicator (HIGH=locked) */
-#define GPIO_RB_ENABLE          5       /* GP5 - Optional enable control */
 
 /* Status LEDs */
 #define GPIO_LED_SYNC           6       /* GP6 - Green: Synchronized to Rb */
@@ -48,7 +47,9 @@
 
 /* Debug/Diagnostic Outputs */
 #define GPIO_DEBUG_PPS_OUT      10      /* GP10 - Regenerated 1PPS for test */
-#define GPIO_DEBUG_SYNC_PULSE   11      /* GP11 - Sync pulse indicator */
+
+/* GPS Receiver Input (NEO-M8N or similar) */
+#define GPIO_GPS_PPS_INPUT      11      /* GP11 - GPS 1PPS input (backup time source) */
 
 /* UART for Debug (optional) */
 #define GPIO_UART_TX            0       /* GP0 - UART0 TX */
@@ -77,8 +78,9 @@
 /* IRIG-B Timecode Output */
 #define GPIO_IRIG_B             27      /* GP27 - IRIG-B timecode */
 
-/* NMEA Serial Output (UART1) */
-#define GPIO_NMEA_TX            28      /* GP28 - NMEA 0183 UART TX */
+/* NMEA/GPS Serial (UART1) */
+#define GPIO_NMEA_TX            28      /* GP28 - NMEA 0183 UART TX (output) */
+#define GPIO_GPS_RX             5       /* GP5 - GPS NMEA UART1 RX (input from NEO-M8N) */
 
 /* Interval pulse timing */
 #define PULSE_WIDTH_MS          10      /* Output pulse width in milliseconds */
@@ -107,6 +109,12 @@
 #define DISCIPLINE_TAU_SLOW     1024            /* Slow time constant (seconds) */
 #define DISCIPLINE_GAIN_P       0.7             /* Proportional gain */
 #define DISCIPLINE_GAIN_I       0.3             /* Integral gain */
+
+/* GPS receiver parameters */
+#define GPS_UART_BAUD           9600            /* NEO-M8N default baud rate */
+#define GPS_PPS_TIMEOUT_MS      2000            /* GPS PPS timeout (2 seconds) */
+#define GPS_NMEA_TIMEOUT_MS     5000            /* NMEA sentence timeout */
+#define GPS_MIN_SATS            4               /* Minimum satellites for valid fix */
 
 /*============================================================================
  * NETWORK CONFIGURATION
@@ -311,5 +319,16 @@ void ac_freq_init(void);
 void ac_freq_task(void);
 float ac_freq_get_hz(void);
 bool ac_freq_is_valid(void);
+
+/* GPS Receiver Input */
+void gps_input_init(void);
+void gps_input_task(void);
+bool gps_has_fix(void);
+bool gps_has_time(void);
+bool gps_pps_valid(void);
+uint8_t gps_get_satellites(void);
+uint32_t gps_get_unix_time(void);
+uint64_t gps_get_last_pps_us(void);
+void gps_get_position(double *lat, double *lon, double *alt);
 
 #endif /* CHRONOS_RB_H */

@@ -21,6 +21,7 @@
 #include "ota_update.h"
 #include "radio_timecode.h"
 #include "nmea_output.h"
+#include "gps_input.h"
 
 /*============================================================================
  * HTTP CONSTANTS
@@ -166,6 +167,19 @@ static const char HTML_PAGE[] =
 "<div class='stat'><span class='stat-label'>JJY60 (60kHz)</span>"
 "<span class='stat-value'>%s</span></div>"
 "<div class='stat'><span class='stat-label'>NMEA Serial</span>"
+"<span class='stat-value'>%s</span></div>"
+"</div>"
+"<div class='card'>"
+"<h2>GPS Receiver</h2>"
+"<div class='stat'><span class='stat-label'>Status</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>Fix</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>Satellites</span>"
+"<span class='stat-value'>%d</span></div>"
+"<div class='stat'><span class='stat-label'>GPS Time</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>GPS PPS</span>"
 "<span class='stat-value'>%s</span></div>"
 "</div>"
 "</div>"
@@ -524,6 +538,20 @@ static int generate_status_page(char *buf, size_t len) {
                   (g_time_state.sync_state == SYNC_STATE_LOCKED);
     const char *logo_class = all_ok ? "logo-ok" : "logo-error";
 
+    /* GPS status */
+    const char *gps_fix_str = "None";
+    gps_fix_type_t fix = gps_get_fix_type();
+    if (fix == GPS_FIX_2D) gps_fix_str = "2D";
+    else if (fix == GPS_FIX_3D) gps_fix_str = "3D";
+
+    char gps_time_str[24] = "N/A";
+    if (gps_has_time()) {
+        gps_time_t gps_t;
+        gps_get_utc_time(&gps_t);
+        snprintf(gps_time_str, sizeof(gps_time_str), "%02d:%02d:%02d",
+                 gps_t.hour, gps_t.minute, gps_t.second);
+    }
+
     return snprintf(buf, len, HTML_PAGE,
         logo_class, time_class, time_str,
         sync_class, led_class, sync_states[g_time_state.sync_state],
@@ -548,6 +576,11 @@ static int generate_status_page(char *buf, size_t len) {
         radio_timecode_is_enabled(RADIO_JJY40) ? "ON" : "OFF",
         radio_timecode_is_enabled(RADIO_JJY60) ? "ON" : "OFF",
         nmea_output_is_enabled() ? "ON" : "OFF",
+        gps_is_enabled() ? "Enabled" : "Disabled",
+        gps_fix_str,
+        (int)gps_get_satellites(),
+        gps_time_str,
+        gps_pps_valid() ? "Valid" : "No signal",
         pulse_html,
         CHRONOS_VERSION_STRING,
         CHRONOS_BUILD_DATE
@@ -633,6 +666,17 @@ static int generate_json_status(char *buf, size_t len) {
         "\"jjy60\":%s"
         "},"
         "\"nmea\":%s,"
+        "\"gps\":{"
+        "\"enabled\":%s,"
+        "\"has_fix\":%s,"
+        "\"has_time\":%s,"
+        "\"pps_valid\":%s,"
+        "\"satellites\":%d,"
+        "\"fix_type\":%d,"
+        "\"pps_count\":%lu,"
+        "\"nmea_count\":%lu,"
+        "\"nmea_errors\":%lu"
+        "},"
         "\"pulse_outputs\":%s,"
         "\"ip\":\"%s\","
         "\"version\":\"%s\""
@@ -660,6 +704,15 @@ static int generate_json_status(char *buf, size_t len) {
         radio_timecode_is_enabled(RADIO_JJY40) ? "true" : "false",
         radio_timecode_is_enabled(RADIO_JJY60) ? "true" : "false",
         nmea_output_is_enabled() ? "true" : "false",
+        gps_is_enabled() ? "true" : "false",
+        gps_has_fix() ? "true" : "false",
+        gps_has_time() ? "true" : "false",
+        gps_pps_valid() ? "true" : "false",
+        (int)gps_get_satellites(),
+        (int)gps_get_fix_type(),
+        (unsigned long)gps_get_state()->pps_count,
+        (unsigned long)gps_get_state()->nmea_count,
+        (unsigned long)gps_get_state()->nmea_errors,
         pulse_json,
         ip_str,
         CHRONOS_VERSION_STRING
@@ -910,7 +963,7 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
 
     if (strstr(request, "/api/status") != NULL) {
         /* JSON status API */
-        char json_buf[768];
+        char json_buf[960];  /* Increased for GPS diagnostics */
         generate_json_status(json_buf, sizeof(json_buf));
         snprintf(response, sizeof(response), "%s%s", HTTP_JSON_HEADER, json_buf);
 
@@ -952,6 +1005,11 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
                 bool enable = (strcmp(val, "on") == 0 || strcmp(val, "1") == 0);
                 nmea_output_enable(enable);
                 cfg->nmea_enabled = enable;
+            }
+            if (parse_form_field(body, "gps", val, sizeof(val))) {
+                bool enable = (strcmp(val, "on") == 0 || strcmp(val, "1") == 0);
+                gps_enable(enable);
+                cfg->gps_enabled = enable;
             }
             if (parse_form_checkbox(body, "save")) {
                 config_save();

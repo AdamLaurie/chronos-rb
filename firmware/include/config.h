@@ -19,7 +19,7 @@
  *============================================================================*/
 
 #define CONFIG_MAGIC        0x4352424E  /* "CRBN" */
-#define CONFIG_VERSION      2           /* Bumped for RF settings */
+#define CONFIG_VERSION      3           /* Bumped for GPS settings */
 
 #define CONFIG_SSID_MAX     33  /* 32 chars + null */
 #define CONFIG_PASS_MAX     65  /* 64 chars + null */
@@ -42,8 +42,11 @@ typedef struct {
     /* NMEA output settings */
     bool nmea_enabled;                  /* NMEA serial output */
 
+    /* GPS receiver settings */
+    bool gps_enabled;                   /* GPS receiver input enabled */
+
     /* Future expansion */
-    uint8_t reserved[120];              /* Reserved for future use */
+    uint8_t reserved[119];              /* Reserved for future use */
 
     uint32_t crc32;                     /* CRC32 checksum */
 } config_t;

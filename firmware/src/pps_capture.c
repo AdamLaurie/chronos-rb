@@ -104,14 +104,6 @@ static void pps_pio_irq_handler(void) {
     }
 }
 
-/**
- * GPIO IRQ handler (fallback if PIO not available)
- */
-static void pps_gpio_irq_handler(uint gpio, uint32_t events) {
-    if (gpio == GPIO_PPS_INPUT && (events & GPIO_IRQ_EDGE_RISE)) {
-        pps_pio_irq_handler();
-    }
-}
 
 /*============================================================================
  * INITIALIZATION

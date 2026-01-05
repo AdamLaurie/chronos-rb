@@ -32,6 +32,7 @@
 #include "config.h"
 #include "radio_timecode.h"
 #include "nmea_output.h"
+#include "gps_input.h"
 
 /*============================================================================
  * CONFIGURATION
@@ -200,6 +201,10 @@ static void cmd_help(void) {
     cli_printf("  nmea                      - Show NMEA status\n");
     cli_printf("  nmea <on|off>             - Enable/disable NMEA output\n");
     cli_printf("\n");
+    cli_printf("GPS Receiver:\n");
+    cli_printf("  gps                       - Show GPS status\n");
+    cli_printf("  gps <on|off>              - Enable/disable GPS input\n");
+    cli_printf("\n");
 }
 
 /**
@@ -288,7 +293,11 @@ static void cmd_pins(void) {
 
     cli_printf("Outputs - Debug:\n");
     cli_printf("  GP%-2d  Debug PPS Out      Regenerated 1PPS for test\n", GPIO_DEBUG_PPS_OUT);
-    cli_printf("  GP%-2d  Debug Sync Pulse   Sync pulse indicator\n", GPIO_DEBUG_SYNC_PULSE);
+    cli_printf("\n");
+
+    cli_printf("GPS Receiver:\n");
+    cli_printf("  GP%-2d  GPS PPS Input      1PPS from GPS (backup)\n", GPIO_GPS_PPS_INPUT);
+    cli_printf("  GP%-2d  GPS RX (UART1)     NMEA from GPS module\n", GPIO_GPS_RX);
     cli_printf("\n");
 
     cli_printf("Outputs - Fixed Interval Pulses:\n");
@@ -306,9 +315,6 @@ static void cmd_pins(void) {
     cli_printf("  GP%-2d  I2C SCL            Optional OLED display\n", GPIO_I2C_SCL);
     cli_printf("\n");
 
-    cli_printf("Control:\n");
-    cli_printf("  GP%-2d  Rb Enable          Optional FE-5680A enable\n", GPIO_RB_ENABLE);
-    cli_printf("\n");
 }
 
 /**
@@ -619,6 +625,55 @@ static void cmd_nmea(int argc, char **argv) {
     cli_printf("Use 'config save' to persist settings\n");
 }
 
+/**
+ * GPS receiver control
+ */
+static void cmd_gps(int argc, char **argv) {
+    config_t *cfg = config_get();
+
+    if (argc < 2) {
+        const char *fix_str = "None";
+        gps_fix_type_t fix = gps_get_fix_type();
+        if (fix == GPS_FIX_2D) fix_str = "2D";
+        else if (fix == GPS_FIX_3D) fix_str = "3D";
+
+        cli_printf("\n");
+        cli_printf("GPS Receiver Status:\n");
+        cli_printf("  Enabled:        %s\n", gps_is_enabled() ? "YES" : "NO");
+        cli_printf("  Fix:            %s\n", fix_str);
+        cli_printf("  Satellites:     %d\n", gps_get_satellites());
+        cli_printf("  Has Time:       %s\n", gps_has_time() ? "YES" : "NO");
+        cli_printf("  PPS Valid:      %s\n", gps_pps_valid() ? "YES" : "NO");
+        cli_printf("  PPS Count:      %lu\n", (unsigned long)gps_get_pps_count());
+
+        if (gps_has_time()) {
+            gps_time_t t;
+            gps_get_utc_time(&t);
+            cli_printf("  UTC Time:       %04d-%02d-%02d %02d:%02d:%02d\n",
+                       t.year, t.month, t.day, t.hour, t.minute, t.second);
+        }
+
+        if (gps_has_fix()) {
+            double lat, lon, alt;
+            gps_get_position(&lat, &lon, &alt);
+            cli_printf("  Position:       %.6f, %.6f\n", lat, lon);
+            cli_printf("  Altitude:       %.1f m\n", alt);
+        }
+
+        cli_printf("\nPins: PPS=GP%d, RX=GP%d, TX=GP%d\n",
+                   GPIO_GPS_PPS_INPUT, GPIO_GPS_RX, GPIO_NMEA_TX);
+        cli_printf("Usage: gps <on|off>\n");
+        cli_printf("\n");
+        return;
+    }
+
+    bool enable = (strcmp(argv[1], "on") == 0 || strcmp(argv[1], "1") == 0);
+    gps_enable(enable);
+    cfg->gps_enabled = enable;
+    cli_printf("GPS %s\n", enable ? "enabled" : "disabled");
+    cli_printf("Use 'config save' to persist settings\n");
+}
+
 /*============================================================================
  * COMMAND PROCESSOR
  *============================================================================*/
@@ -663,6 +718,8 @@ static void process_command(char *line) {
         cmd_rf(argc, argv);
     } else if (strcmp(argv[0], "nmea") == 0) {
         cmd_nmea(argc, argv);
+    } else if (strcmp(argv[0], "gps") == 0) {
+        cmd_gps(argc, argv);
     } else {
         cli_printf("Unknown command: %s\n", argv[0]);
         cli_printf("Type 'help' for available commands\n");
