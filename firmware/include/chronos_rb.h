@@ -18,9 +18,9 @@
  * VERSION INFORMATION
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
-#define CHRONOS_VERSION_MINOR   0
-#define CHRONOS_VERSION_PATCH   10
-#define CHRONOS_VERSION_STRING  "1.0.10"
+#define CHRONOS_VERSION_MINOR   2
+#define CHRONOS_VERSION_PATCH   4
+#define CHRONOS_VERSION_STRING  "1.2.4"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
@@ -67,6 +67,18 @@
 
 /* AC Mains Frequency Monitor Input */
 #define GPIO_AC_ZERO_CROSS      19      /* GP19 - Zero-crossing detector input */
+
+/* Radio Timecode Outputs (simulated LF radio signals) */
+#define GPIO_DCF77              2       /* GP2 - DCF77 Germany 77.5kHz */
+#define GPIO_WWVB               3       /* GP3 - WWVB USA 60kHz */
+#define GPIO_JJY40              4       /* GP4 - JJY Japan 40kHz (Fukushima) */
+#define GPIO_JJY60              26      /* GP26 - JJY Japan 60kHz (Kyushu) */
+
+/* IRIG-B Timecode Output */
+#define GPIO_IRIG_B             27      /* GP27 - IRIG-B timecode */
+
+/* NMEA Serial Output (UART1) */
+#define GPIO_NMEA_TX            28      /* GP28 - NMEA 0183 UART TX */
 
 /* Interval pulse timing */
 #define PULSE_WIDTH_MS          10      /* Output pulse width in milliseconds */

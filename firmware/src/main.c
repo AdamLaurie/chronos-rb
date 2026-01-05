@@ -25,6 +25,15 @@
 #include "ota_update.h"
 #include "pps_generator.h"
 
+/* Additional time protocol headers */
+#include "time_protocol.h"
+#include "nmea_output.h"
+#include "radio_timecode.h"
+#include "irig_b.h"
+#include "roughtime.h"
+#include "gptp.h"
+#include "nts.h"
+
 /*============================================================================
  * GLOBAL VARIABLES
  *============================================================================*/
@@ -336,6 +345,34 @@ void chronos_init(void) {
     printf("[INIT] Initializing OTA subsystem...\n");
     ota_init();
 
+    printf("[INIT] Initializing NMEA output...\n");
+    nmea_output_init();
+
+    printf("[INIT] Initializing radio timecode outputs...\n");
+    radio_timecode_init();
+
+    /* Apply RF and NMEA settings from config */
+    {
+        config_t *cfg = config_get();
+        printf("[INIT] Applying RF/NMEA settings from config...\n");
+        radio_timecode_enable(RADIO_DCF77, cfg->rf_dcf77_enabled);
+        radio_timecode_enable(RADIO_WWVB, cfg->rf_wwvb_enabled);
+        radio_timecode_enable(RADIO_JJY40, cfg->rf_jjy40_enabled);
+        radio_timecode_enable(RADIO_JJY60, cfg->rf_jjy60_enabled);
+        nmea_output_enable(cfg->nmea_enabled);
+        printf("[INIT]   DCF77: %s, WWVB: %s, JJY40: %s, JJY60: %s, NMEA: %s\n",
+               cfg->rf_dcf77_enabled ? "ON" : "OFF",
+               cfg->rf_wwvb_enabled ? "ON" : "OFF",
+               cfg->rf_jjy40_enabled ? "ON" : "OFF",
+               cfg->rf_jjy60_enabled ? "ON" : "OFF",
+               cfg->nmea_enabled ? "ON" : "OFF");
+    }
+
+    /* IRIG-B disabled - causes crashes, needs debugging
+    printf("[INIT] Initializing IRIG-B output...\n");
+    irig_b_init();
+    */
+
     /* Check for WiFi auto-connect */
     if (config_wifi_auto_connect_enabled()) {
         config_t *cfg = config_get();
@@ -380,6 +417,12 @@ static void wifi_auto_connect_task(void) {
                     ntp_server_init();
                     ptp_server_init();
                     web_init();
+                    /* Disabled - all cause crashes after WiFi connect:
+                    time_protocols_init();
+                    roughtime_init();
+                    gptp_init();
+                    nts_init();
+                    */
                     printf("[WIFI] Network services started\n");
                     wifi_auto_state = WIFI_AUTO_DONE;
                 } else {
@@ -524,7 +567,13 @@ int main(void) {
             ntp_server_task();
             ptp_server_task();
             web_task();
+            /* gptp_task(); - disabled */
         }
+
+        /* Time output tasks */
+        nmea_output_task();
+        radio_timecode_task();
+        /* irig_b_task(); - disabled, crashes */
         
         /* Update status LEDs */
         update_status_leds();

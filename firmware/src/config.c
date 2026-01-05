@@ -81,6 +81,15 @@ static void config_set_defaults(void) {
     current_config.wifi_enabled = false;
     current_config.wifi_ssid[0] = '\0';
     current_config.wifi_pass[0] = '\0';
+
+    /* RF timecode outputs - all enabled by default */
+    current_config.rf_dcf77_enabled = true;
+    current_config.rf_wwvb_enabled = true;
+    current_config.rf_jjy40_enabled = true;
+    current_config.rf_jjy60_enabled = true;
+
+    /* NMEA output - enabled by default */
+    current_config.nmea_enabled = true;
 }
 
 /**
@@ -91,7 +100,8 @@ static bool config_validate(const config_t *cfg) {
         return false;
     }
 
-    if (cfg->version != CONFIG_VERSION) {
+    /* Accept current version or previous version for migration */
+    if (cfg->version != CONFIG_VERSION && cfg->version != 1) {
         return false;
     }
 
@@ -104,6 +114,22 @@ static bool config_validate(const config_t *cfg) {
     }
 
     return true;
+}
+
+/**
+ * Migrate config from older version to current version
+ */
+static void config_migrate(void) {
+    if (current_config.version == 1) {
+        printf("[CONFIG] Migrating from v1 to v2...\n");
+        /* v1 -> v2: Add RF and NMEA settings with defaults */
+        current_config.rf_dcf77_enabled = true;
+        current_config.rf_wwvb_enabled = true;
+        current_config.rf_jjy40_enabled = true;
+        current_config.rf_jjy60_enabled = true;
+        current_config.nmea_enabled = true;
+        current_config.version = CONFIG_VERSION;
+    }
 }
 
 /*============================================================================
@@ -119,6 +145,7 @@ void config_init(void) {
         config_set_defaults();
     } else {
         printf("[CONFIG] Configuration loaded from flash\n");
+        config_migrate();  /* Upgrade older config versions */
     }
     config_initialized = true;
 }
@@ -235,6 +262,17 @@ void config_print(void) {
     } else {
         printf("  SSID:           (not configured)\n");
     }
+    printf("\n");
+
+    printf("Radio Timecode Outputs:\n");
+    printf("  DCF77 (77.5kHz): %s\n", current_config.rf_dcf77_enabled ? "Enabled" : "Disabled");
+    printf("  WWVB (60kHz):    %s\n", current_config.rf_wwvb_enabled ? "Enabled" : "Disabled");
+    printf("  JJY40 (40kHz):   %s\n", current_config.rf_jjy40_enabled ? "Enabled" : "Disabled");
+    printf("  JJY60 (60kHz):   %s\n", current_config.rf_jjy60_enabled ? "Enabled" : "Disabled");
+    printf("\n");
+
+    printf("Serial Outputs:\n");
+    printf("  NMEA:            %s\n", current_config.nmea_enabled ? "Enabled" : "Disabled");
     printf("\n");
 
     printf("Config Info:\n");

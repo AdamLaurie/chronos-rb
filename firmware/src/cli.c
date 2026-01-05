@@ -30,6 +30,8 @@
 #include "pulse_output.h"
 #include "ac_freq_monitor.h"
 #include "config.h"
+#include "radio_timecode.h"
+#include "nmea_output.h"
 
 /*============================================================================
  * CONFIGURATION
@@ -188,6 +190,15 @@ static void cmd_help(void) {
     cli_printf("  pulse 15 S 0 100 1 0    - GPIO15 single 100ms pulse on second 0\n");
     cli_printf("  pulse 16 M 59 50 5 100  - GPIO16 5x50ms pulses (100ms gap) on min 59\n");
     cli_printf("  pulse 17 H 00:00 500 3 200 - GPIO17 3x500ms (200ms gap) at midnight\n");
+    cli_printf("\n");
+    cli_printf("Radio Timecode Commands:\n");
+    cli_printf("  rf                        - Show RF output status\n");
+    cli_printf("  rf <signal> <on|off>      - Enable/disable output\n");
+    cli_printf("  Signals: dcf77, wwvb, jjy40, jjy60, all\n");
+    cli_printf("\n");
+    cli_printf("NMEA Output:\n");
+    cli_printf("  nmea                      - Show NMEA status\n");
+    cli_printf("  nmea <on|off>             - Enable/disable NMEA output\n");
     cli_printf("\n");
 }
 
@@ -525,6 +536,89 @@ static void cmd_pulse(int argc, char **argv) {
     }
 }
 
+/**
+ * Radio timecode output control
+ */
+static void cmd_rf(int argc, char **argv) {
+    config_t *cfg = config_get();
+
+    if (argc < 2) {
+        cli_printf("Radio Timecode Status:\n");
+        cli_printf("  DCF77  (GP%d, 77.5kHz):  %s\n", GPIO_DCF77,
+                   radio_timecode_is_enabled(RADIO_DCF77) ? "ON" : "OFF");
+        cli_printf("  WWVB   (GP%d,   60kHz):  %s\n", GPIO_WWVB,
+                   radio_timecode_is_enabled(RADIO_WWVB) ? "ON" : "OFF");
+        cli_printf("  JJY40  (GP%d,   40kHz):  %s\n", GPIO_JJY40,
+                   radio_timecode_is_enabled(RADIO_JJY40) ? "ON" : "OFF");
+        cli_printf("  JJY60  (GP%d,   60kHz): %s\n", GPIO_JJY60,
+                   radio_timecode_is_enabled(RADIO_JJY60) ? "ON" : "OFF");
+        cli_printf("\nUsage: rf <dcf77|wwvb|jjy40|jjy60|all> <on|off>\n");
+        return;
+    }
+
+    if (argc < 3) {
+        cli_printf("Usage: rf <dcf77|wwvb|jjy40|jjy60|all> <on|off>\n");
+        return;
+    }
+
+    const char *signal = argv[1];
+    bool enable = (strcmp(argv[2], "on") == 0 || strcmp(argv[2], "1") == 0);
+
+    if (strcmp(signal, "dcf77") == 0) {
+        radio_timecode_enable(RADIO_DCF77, enable);
+        cfg->rf_dcf77_enabled = enable;
+        cli_printf("DCF77 %s\n", enable ? "enabled" : "disabled");
+    } else if (strcmp(signal, "wwvb") == 0) {
+        radio_timecode_enable(RADIO_WWVB, enable);
+        cfg->rf_wwvb_enabled = enable;
+        cli_printf("WWVB %s\n", enable ? "enabled" : "disabled");
+    } else if (strcmp(signal, "jjy40") == 0) {
+        radio_timecode_enable(RADIO_JJY40, enable);
+        cfg->rf_jjy40_enabled = enable;
+        cli_printf("JJY40 %s\n", enable ? "enabled" : "disabled");
+    } else if (strcmp(signal, "jjy60") == 0) {
+        radio_timecode_enable(RADIO_JJY60, enable);
+        cfg->rf_jjy60_enabled = enable;
+        cli_printf("JJY60 %s\n", enable ? "enabled" : "disabled");
+    } else if (strcmp(signal, "all") == 0) {
+        radio_timecode_enable(RADIO_DCF77, enable);
+        radio_timecode_enable(RADIO_WWVB, enable);
+        radio_timecode_enable(RADIO_JJY40, enable);
+        radio_timecode_enable(RADIO_JJY60, enable);
+        cfg->rf_dcf77_enabled = enable;
+        cfg->rf_wwvb_enabled = enable;
+        cfg->rf_jjy40_enabled = enable;
+        cfg->rf_jjy60_enabled = enable;
+        cli_printf("All RF outputs %s\n", enable ? "enabled" : "disabled");
+    } else {
+        cli_printf("Unknown signal: %s\n", signal);
+        cli_printf("Valid signals: dcf77, wwvb, jjy40, jjy60, all\n");
+        return;
+    }
+
+    cli_printf("Use 'config save' to persist settings\n");
+}
+
+/**
+ * NMEA output control
+ */
+static void cmd_nmea(int argc, char **argv) {
+    config_t *cfg = config_get();
+
+    if (argc < 2) {
+        cli_printf("NMEA Output: %s (GP%d)\n",
+                   nmea_output_is_enabled() ? "ON" : "OFF", GPIO_NMEA_TX);
+        cli_printf("Usage: nmea <on|off>\n");
+        return;
+    }
+
+    bool enable = (strcmp(argv[1], "on") == 0 || strcmp(argv[1], "1") == 0);
+    nmea_output_enable(enable);
+    cfg->nmea_enabled = enable;
+    cli_printf("NMEA %s\n", enable ? "enabled" : "disabled");
+    cli_printf("Use 'config save' to persist settings\n");
+}
+
 /*============================================================================
  * COMMAND PROCESSOR
  *============================================================================*/
@@ -565,6 +659,10 @@ static void process_command(char *line) {
         cmd_wifi(argc, argv);
     } else if (strcmp(argv[0], "pulse") == 0) {
         cmd_pulse(argc, argv);
+    } else if (strcmp(argv[0], "rf") == 0) {
+        cmd_rf(argc, argv);
+    } else if (strcmp(argv[0], "nmea") == 0) {
+        cmd_nmea(argc, argv);
     } else {
         cli_printf("Unknown command: %s\n", argv[0]);
         cli_printf("Type 'help' for available commands\n");

@@ -19,6 +19,8 @@
 #include "pulse_output.h"
 #include "cli.h"
 #include "ota_update.h"
+#include "radio_timecode.h"
+#include "nmea_output.h"
 
 /*============================================================================
  * HTTP CONSTANTS
@@ -67,7 +69,7 @@
  * HTML CONTENT
  *============================================================================*/
 
-static const char HTML_PAGE[] = 
+static const char HTML_PAGE[] =
 "<!DOCTYPE html>"
 "<html><head>"
 "<title>CHRONOS-Rb Time Server</title>"
@@ -76,34 +78,39 @@ static const char HTML_PAGE[] =
 "*{box-sizing:border-box;margin:0;padding:0}"
 "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
 "background:linear-gradient(135deg,#1a1a2e 0%%,#16213e 100%%);color:#eee;min-height:100vh;padding:20px}"
-".container{max-width:800px;margin:0 auto}"
-"h1{text-align:center;margin-bottom:30px;font-size:2em;"
-"background:linear-gradient(90deg,#e94560,#0f3460);-webkit-background-clip:text;"
-"-webkit-text-fill-color:transparent}"
-".card{background:rgba(255,255,255,0.05);border-radius:15px;padding:20px;margin-bottom:20px;"
+".container{max-width:1200px;margin:0 auto}"
+"h1{text-align:center;margin-bottom:8px;font-size:1.8em}"
+".logo-ok{color:#4ade80;text-shadow:0 0 20px rgba(74,222,128,0.5)}"
+".logo-error{color:#f87171;text-shadow:0 0 20px rgba(248,113,113,0.5)}"
+".time-display{text-align:center;font-size:2.5em;font-family:'Courier New',monospace;margin-bottom:15px}"
+".time-valid{color:#4ade80;text-shadow:0 0 20px rgba(74,222,128,0.5)}"
+".time-invalid{color:#f87171;text-shadow:0 0 20px rgba(248,113,113,0.5)}"
+".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:15px}"
+".card{background:rgba(255,255,255,0.05);border-radius:12px;padding:15px;"
 "backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1)}"
-".card h2{color:#e94560;margin-bottom:15px;font-size:1.2em}"
-".stat{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.1)}"
+".card h2{color:#e94560;margin-bottom:10px;font-size:1.1em}"
+".stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)}"
 ".stat:last-child{border-bottom:none}"
-".stat-label{color:#aaa}"
-".stat-value{font-weight:bold;font-family:'Courier New',monospace}"
+".stat-label{color:#888;font-size:0.9em}"
+".stat-value{font-weight:bold;font-family:'Courier New',monospace;font-size:0.9em}"
 ".status-locked{color:#4ade80}"
 ".status-syncing{color:#fbbf24}"
 ".status-error{color:#f87171}"
-".led{display:inline-block;width:12px;height:12px;border-radius:50%%;margin-right:8px}"
-".led-green{background:#4ade80;box-shadow:0 0 10px #4ade80}"
-".led-yellow{background:#fbbf24;box-shadow:0 0 10px #fbbf24}"
-".led-red{background:#f87171;box-shadow:0 0 10px #f87171}"
-".led-off{background:#333}"
-".nav{text-align:center;margin-bottom:20px}"
-".nav a{color:#e94560;text-decoration:none;padding:8px 16px;border:1px solid #e94560;border-radius:8px}"
+".led{display:inline-block;width:8px;height:8px;border-radius:50%%;margin-right:6px}"
+".led-green{background:#4ade80;box-shadow:0 0 8px #4ade80}"
+".led-yellow{background:#fbbf24;box-shadow:0 0 8px #fbbf24}"
+".led-red{background:#f87171;box-shadow:0 0 8px #f87171}"
+".nav{text-align:center;margin-bottom:15px}"
+".nav a{color:#e94560;text-decoration:none;margin:0 8px;padding:4px 12px;border:1px solid #e94560;border-radius:4px;font-size:0.85em}"
 ".nav a:hover{background:#e94560;color:#fff}"
-"footer{text-align:center;margin-top:30px;color:#666;font-size:0.9em}"
+"footer{text-align:center;margin-top:20px;color:#555;font-size:0.8em}"
 "</style>"
 "</head><body>"
 "<div class='container'>"
-"<h1>⚛ CHRONOS-Rb</h1>"
-"<div class='nav'><a href='/config'>⚙ Config</a></div>"
+"<h1 class='%s'>CHRONOS-Rb</h1>"
+"<div class='time-display %s'>%s</div>"
+"<div class='nav'><a href='/'>Status</a> <a href='/config'>Config</a> <a href='/ota'>OTA</a></div>"
+"<div class='grid'>"
 "<div class='card'>"
 "<h2>System Status</h2>"
 "<div class='stat'><span class='stat-label'>Sync State</span>"
@@ -113,54 +120,59 @@ static const char HTML_PAGE[] =
 "<div class='stat'><span class='stat-label'>Time Valid</span>"
 "<span class='stat-value'>%s</span></div>"
 "<div class='stat'><span class='stat-label'>Uptime</span>"
-"<span class='stat-value'>%lu seconds</span></div>"
+"<span class='stat-value'>%lu sec</span></div>"
 "</div>"
 "<div class='card'>"
 "<h2>Time Discipline</h2>"
 "<div class='stat'><span class='stat-label'>Offset</span>"
 "<span class='stat-value'>%lld ns</span></div>"
-"<div class='stat'><span class='stat-label'>Frequency Offset</span>"
+"<div class='stat'><span class='stat-label'>Freq Offset</span>"
 "<span class='stat-value'>%.3f ppb</span></div>"
 "<div class='stat'><span class='stat-label'>PPS Count</span>"
 "<span class='stat-value'>%lu</span></div>"
-"<div class='stat'><span class='stat-label'>Last Freq Count</span>"
+"<div class='stat'><span class='stat-label'>Freq Count</span>"
 "<span class='stat-value'>%lu Hz</span></div>"
 "</div>"
 "<div class='card'>"
-"<h2>Network Services</h2>"
+"<h2>Network</h2>"
 "<div class='stat'><span class='stat-label'>IP Address</span>"
 "<span class='stat-value'>%s</span></div>"
-"<div class='stat'><span class='stat-label'>NTP Port</span>"
-"<span class='stat-value'>%d (Stratum %d)</span></div>"
+"<div class='stat'><span class='stat-label'>NTP Server</span>"
+"<span class='stat-value'>Port %d (S%d)</span></div>"
 "<div class='stat'><span class='stat-label'>NTP Requests</span>"
 "<span class='stat-value'>%lu</span></div>"
-"<div class='stat'><span class='stat-label'>PTP Sync Sent</span>"
+"<div class='stat'><span class='stat-label'>PTP Syncs</span>"
 "<span class='stat-value'>%lu</span></div>"
 "</div>"
 "<div class='card'>"
-"<h2>AC Mains Monitor</h2>"
+"<h2>AC Mains</h2>"
 "<div class='stat'><span class='stat-label'>Signal</span>"
 "<span class='stat-value'>%s</span></div>"
 "<div class='stat'><span class='stat-label'>Frequency</span>"
 "<span class='stat-value'>%.3f Hz</span></div>"
 "<div class='stat'><span class='stat-label'>Average</span>"
 "<span class='stat-value'>%.3f Hz</span></div>"
-"<div class='stat'><span class='stat-label'>Min / Max</span>"
-"<span class='stat-value'>%.3f / %.3f Hz</span></div>"
-"<div class='stat'><span class='stat-label'>Zero Crossings</span>"
-"<span class='stat-value'>%lu</span></div>"
+"<div class='stat'><span class='stat-label'>Range</span>"
+"<span class='stat-value'>%.1f - %.1f Hz</span></div>"
+"</div>"
+"<div class='card'>"
+"<h2>RF Outputs</h2>"
+"<div class='stat'><span class='stat-label'>DCF77 (77.5kHz)</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>WWVB (60kHz)</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>JJY40 (40kHz)</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>JJY60 (60kHz)</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>NMEA Serial</span>"
+"<span class='stat-value'>%s</span></div>"
+"</div>"
 "</div>"
 "%s"
-"<div class='card'>"
-"<h2>NTP Client Configuration</h2>"
-"<div class='stat'><span class='stat-label'>Linux/Mac</span>"
-"<span class='stat-value'>ntpdate %s</span></div>"
-"<div class='stat'><span class='stat-label'>Windows</span>"
-"<span class='stat-value'>w32tm /stripchart /computer:%s</span></div>"
+"<footer>v%s | %s</footer>"
 "</div>"
-"<footer>CHRONOS-Rb v%s | Rubidium Disciplined NTP/PTP Server</footer>"
-"</div>"
-"<script>setTimeout(()=>location.reload(),5000)</script>"
+"<script>setTimeout(function(){location.reload()},5000)</script>"
 "</body></html>";
 
 static const char CONFIG_PAGE[] =
@@ -359,6 +371,55 @@ static bool web_running = false;
  * HTTP HANDLERS
  *============================================================================*/
 
+/* NTP to Unix epoch offset */
+#define NTP_UNIX_OFFSET 2208988800UL
+
+/**
+ * Format current time as ISO 8601 string
+ */
+static void format_current_time(char *buf, size_t len) {
+    timestamp_t ts = get_current_time();
+
+    /* Protect against underflow if time not yet initialized */
+    if (ts.seconds < NTP_UNIX_OFFSET) {
+        snprintf(buf, len, "1970-01-01T00:00:00Z");
+        return;
+    }
+
+    uint32_t unix_time = ts.seconds - NTP_UNIX_OFFSET;
+
+    /* Calculate broken-down time */
+    uint32_t days = unix_time / 86400;
+    uint32_t remaining = unix_time % 86400;
+    int hour = remaining / 3600;
+    int min = (remaining % 3600) / 60;
+    int sec = remaining % 60;
+
+    /* Calculate year */
+    int year = 1970;
+    while (days > 365) {
+        int days_in_year = ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) ? 366 : 365;
+        if (days < (uint32_t)days_in_year) break;
+        days -= days_in_year;
+        year++;
+    }
+
+    /* Days in each month */
+    int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) {
+        days_in_month[1] = 29;
+    }
+
+    int month = 0;
+    while (month < 12 && days >= (uint32_t)days_in_month[month]) {
+        days -= days_in_month[month];
+        month++;
+    }
+
+    snprintf(buf, len, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+             year, month + 1, (int)days + 1, hour, min, sec);
+}
+
 /**
  * Generate pulse outputs HTML section
  */
@@ -427,10 +488,10 @@ static int generate_status_page(char *buf, size_t len) {
     const char *sync_states[] = {
         "INIT", "FREQ_CAL", "COARSE", "FINE", "LOCKED", "HOLDOVER", "ERROR"
     };
-    
+
     const char *sync_class = "status-syncing";
     const char *led_class = "led-yellow";
-    
+
     if (g_time_state.sync_state == SYNC_STATE_LOCKED) {
         sync_class = "status-locked";
         led_class = "led-green";
@@ -438,22 +499,33 @@ static int generate_status_page(char *buf, size_t len) {
         sync_class = "status-error";
         led_class = "led-red";
     }
-    
+
     char ip_str[20];
     get_ip_address_str(ip_str, sizeof(ip_str));
-    
+
     uint8_t stratum = NTP_STRATUM;
     if (g_time_state.sync_state != SYNC_STATE_LOCKED) {
         stratum = (g_time_state.sync_state >= SYNC_STATE_FINE) ? NTP_STRATUM + 1 : 16;
     }
-    
+
     const ac_freq_state_t *ac = ac_freq_get_state();
 
     /* Generate pulse outputs section */
     static char pulse_html[512];
     generate_pulse_outputs_html(pulse_html, sizeof(pulse_html));
 
+    /* Get current time as ISO 8601 */
+    char time_str[32];
+    format_current_time(time_str, sizeof(time_str));
+    const char *time_class = g_time_state.time_valid ? "time-valid" : "time-invalid";
+
+    /* Logo: green if everything OK, red otherwise */
+    bool all_ok = g_time_state.rb_locked && g_time_state.time_valid &&
+                  (g_time_state.sync_state == SYNC_STATE_LOCKED);
+    const char *logo_class = all_ok ? "logo-ok" : "logo-error";
+
     return snprintf(buf, len, HTML_PAGE,
+        logo_class, time_class, time_str,
         sync_class, led_class, sync_states[g_time_state.sync_state],
         g_time_state.rb_locked ? "LOCKED" : "UNLOCKED",
         g_time_state.time_valid ? "YES" : "NO",
@@ -471,10 +543,14 @@ static int generate_status_page(char *buf, size_t len) {
         (double)ac->frequency_avg_hz,
         (double)ac->frequency_min_hz,
         (double)ac->frequency_max_hz,
-        (unsigned long)ac->zero_cross_count,
+        radio_timecode_is_enabled(RADIO_DCF77) ? "ON" : "OFF",
+        radio_timecode_is_enabled(RADIO_WWVB) ? "ON" : "OFF",
+        radio_timecode_is_enabled(RADIO_JJY40) ? "ON" : "OFF",
+        radio_timecode_is_enabled(RADIO_JJY60) ? "ON" : "OFF",
+        nmea_output_is_enabled() ? "ON" : "OFF",
         pulse_html,
-        ip_str, ip_str,
-        CHRONOS_VERSION_STRING
+        CHRONOS_VERSION_STRING,
+        CHRONOS_BUILD_DATE
     );
 }
 
@@ -521,11 +597,20 @@ static int generate_json_status(char *buf, size_t len) {
     static char pulse_json[512];
     generate_pulse_outputs_json(pulse_json, sizeof(pulse_json));
 
+    /* Get current time as ISO 8601 */
+    char time_str[32];
+    format_current_time(time_str, sizeof(time_str));
+
+    /* Get uptime */
+    uint32_t uptime_sec = to_ms_since_boot(get_absolute_time()) / 1000;
+
     return snprintf(buf, len,
         "{"
         "\"sync_state\":%d,"
         "\"rb_locked\":%s,"
         "\"time_valid\":%s,"
+        "\"current_time\":\"%s\","
+        "\"uptime_sec\":%lu,"
         "\"offset_ns\":%lld,"
         "\"freq_offset_ppb\":%.3f,"
         "\"pps_count\":%lu,"
@@ -541,6 +626,13 @@ static int generate_json_status(char *buf, size_t len) {
         "\"max_hz\":%.3f,"
         "\"zero_crossings\":%lu"
         "},"
+        "\"rf_outputs\":{"
+        "\"dcf77\":%s,"
+        "\"wwvb\":%s,"
+        "\"jjy40\":%s,"
+        "\"jjy60\":%s"
+        "},"
+        "\"nmea\":%s,"
         "\"pulse_outputs\":%s,"
         "\"ip\":\"%s\","
         "\"version\":\"%s\""
@@ -548,6 +640,8 @@ static int generate_json_status(char *buf, size_t len) {
         (int)g_time_state.sync_state,
         g_time_state.rb_locked ? "true" : "false",
         g_time_state.time_valid ? "true" : "false",
+        time_str,
+        (unsigned long)uptime_sec,
         (long long)g_time_state.offset_ns,
         (double)g_time_state.frequency_offset,
         (unsigned long)g_time_state.pps_count,
@@ -561,6 +655,11 @@ static int generate_json_status(char *buf, size_t len) {
         (double)ac->frequency_min_hz,
         (double)ac->frequency_max_hz,
         (unsigned long)ac->zero_cross_count,
+        radio_timecode_is_enabled(RADIO_DCF77) ? "true" : "false",
+        radio_timecode_is_enabled(RADIO_WWVB) ? "true" : "false",
+        radio_timecode_is_enabled(RADIO_JJY40) ? "true" : "false",
+        radio_timecode_is_enabled(RADIO_JJY60) ? "true" : "false",
+        nmea_output_is_enabled() ? "true" : "false",
         pulse_json,
         ip_str,
         CHRONOS_VERSION_STRING
@@ -811,7 +910,7 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
 
     if (strstr(request, "/api/status") != NULL) {
         /* JSON status API */
-        char json_buf[512];
+        char json_buf[768];
         generate_json_status(json_buf, sizeof(json_buf));
         snprintf(response, sizeof(response), "%s%s", HTTP_JSON_HEADER, json_buf);
 
@@ -820,6 +919,45 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
         char json_buf[256];
         generate_json_config(json_buf, sizeof(json_buf));
         snprintf(response, sizeof(response), "%s%s", HTTP_JSON_HEADER, json_buf);
+
+    } else if (is_post && strstr(request, "/api/rf") != NULL) {
+        /* POST /api/rf - toggle RF outputs */
+        const char *body = strstr(request, "\r\n\r\n");
+        if (body) {
+            body += 4;
+            config_t *cfg = config_get();
+
+            char val[8];
+            if (parse_form_field(body, "dcf77", val, sizeof(val))) {
+                bool enable = (strcmp(val, "on") == 0 || strcmp(val, "1") == 0);
+                radio_timecode_enable(RADIO_DCF77, enable);
+                cfg->rf_dcf77_enabled = enable;
+            }
+            if (parse_form_field(body, "wwvb", val, sizeof(val))) {
+                bool enable = (strcmp(val, "on") == 0 || strcmp(val, "1") == 0);
+                radio_timecode_enable(RADIO_WWVB, enable);
+                cfg->rf_wwvb_enabled = enable;
+            }
+            if (parse_form_field(body, "jjy40", val, sizeof(val))) {
+                bool enable = (strcmp(val, "on") == 0 || strcmp(val, "1") == 0);
+                radio_timecode_enable(RADIO_JJY40, enable);
+                cfg->rf_jjy40_enabled = enable;
+            }
+            if (parse_form_field(body, "jjy60", val, sizeof(val))) {
+                bool enable = (strcmp(val, "on") == 0 || strcmp(val, "1") == 0);
+                radio_timecode_enable(RADIO_JJY60, enable);
+                cfg->rf_jjy60_enabled = enable;
+            }
+            if (parse_form_field(body, "nmea", val, sizeof(val))) {
+                bool enable = (strcmp(val, "on") == 0 || strcmp(val, "1") == 0);
+                nmea_output_enable(enable);
+                cfg->nmea_enabled = enable;
+            }
+            if (parse_form_checkbox(body, "save")) {
+                config_save();
+            }
+        }
+        snprintf(response, sizeof(response), "%s{\"ok\":true}", HTTP_JSON_HEADER);
 
     } else if (is_post && strstr(request, "/cli") != NULL) {
         /* POST /cli - execute CLI command */

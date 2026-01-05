@@ -19,7 +19,7 @@
  *============================================================================*/
 
 #define CONFIG_MAGIC        0x4352424E  /* "CRBN" */
-#define CONFIG_VERSION      1
+#define CONFIG_VERSION      2           /* Bumped for RF settings */
 
 #define CONFIG_SSID_MAX     33  /* 32 chars + null */
 #define CONFIG_PASS_MAX     65  /* 64 chars + null */
@@ -33,8 +33,17 @@ typedef struct {
     char wifi_ssid[CONFIG_SSID_MAX];    /* WiFi SSID */
     char wifi_pass[CONFIG_PASS_MAX];    /* WiFi password */
 
+    /* Radio timecode output settings */
+    bool rf_dcf77_enabled;              /* DCF77 (Germany 77.5kHz) */
+    bool rf_wwvb_enabled;               /* WWVB (USA 60kHz) */
+    bool rf_jjy40_enabled;              /* JJY40 (Japan 40kHz) */
+    bool rf_jjy60_enabled;              /* JJY60 (Japan 60kHz) */
+
+    /* NMEA output settings */
+    bool nmea_enabled;                  /* NMEA serial output */
+
     /* Future expansion */
-    uint8_t reserved[128];              /* Reserved for future use */
+    uint8_t reserved[120];              /* Reserved for future use */
 
     uint32_t crc32;                     /* CRC32 checksum */
 } config_t;

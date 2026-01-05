@@ -55,6 +55,14 @@ add_executable(chronos_rb
     src/time_discipline.c
     src/web_interface.c
     src/ota_update.c
+    # Additional time protocols
+    src/time_protocol.c
+    src/nmea_output.c
+    src/radio_timecode.c
+    src/irig_b.c
+    src/roughtime.c
+    src/gptp.c
+    src/nts.c
 )
 
 target_include_directories(chronos_rb PRIVATE
@@ -78,6 +86,7 @@ target_link_libraries(chronos_rb
     pico_flash
     pico_multicore
     pico_fota_bootloader_lib
+    pico_unique_id
     hardware_pio
     hardware_dma
     hardware_irq
@@ -87,6 +96,7 @@ target_link_libraries(chronos_rb
     hardware_adc
     hardware_flash
     hardware_sync
+    hardware_uart
 )
 
 # Enable USB and UART output
