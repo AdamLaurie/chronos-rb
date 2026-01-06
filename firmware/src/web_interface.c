@@ -73,7 +73,7 @@
 static const char HTML_PAGE[] =
 "<!DOCTYPE html>"
 "<html><head>"
-"<title>CHRONOS-Rb Time Server</title>"
+"<title>⚛ CHRONOS-Rb Time Server</title>"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
 "<style>"
 "*{box-sizing:border-box;margin:0;padding:0}"
@@ -204,7 +204,7 @@ static const char HTML_PAGE[] =
 static const char CONFIG_PAGE[] =
 "<!DOCTYPE html>"
 "<html><head>"
-"<title>CHRONOS-Rb Configuration</title>"
+"<title>⚛ CHRONOS-Rb Configuration</title>"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
 "<style>"
 "*{box-sizing:border-box;margin:0;padding:0}"
@@ -288,7 +288,7 @@ static const char CONFIG_PAGE[] =
 static const char OTA_PAGE[] =
 "<!DOCTYPE html>"
 "<html><head>"
-"<title>CHRONOS-Rb OTA Update</title>"
+"<title>⚛ CHRONOS-Rb OTA Update</title>"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
 "<style>"
 "*{box-sizing:border-box;margin:0;padding:0}"
