@@ -26,6 +26,9 @@ static ota_status_t g_ota_status = {0};
 static uint8_t write_buffer[PFB_ALIGN_SIZE];
 static size_t buffer_offset = 0;
 
+/* Timeout tracking */
+static uint64_t last_activity_us = 0;
+
 /*============================================================================
  * INITIALIZATION
  *============================================================================*/
@@ -139,6 +142,7 @@ ota_error_t ota_begin(size_t total_size, uint32_t expected_crc) {
     g_ota_status.expected_crc = expected_crc;
     g_ota_status.last_error = OTA_OK;
     buffer_offset = 0;
+    last_activity_us = time_us_64();
 
     printf("[OTA] Ready to receive firmware\n");
     return OTA_OK;
@@ -148,6 +152,9 @@ ota_error_t ota_write_chunk(const uint8_t *data, size_t len) {
     if (g_ota_status.state != OTA_STATE_RECEIVING) {
         return OTA_ERROR_INVALID_STATE;
     }
+
+    /* Update activity timestamp */
+    last_activity_us = time_us_64();
 
     size_t data_offset = 0;
 
@@ -274,4 +281,18 @@ void ota_apply_and_reboot(void) {
 void ota_confirm_boot(void) {
     printf("[OTA] Confirming boot success (preventing rollback)\n");
     pfb_firmware_commit();
+}
+
+void ota_task(void) {
+    /* Check for timeout during receiving state */
+    if (g_ota_status.state == OTA_STATE_RECEIVING && last_activity_us > 0) {
+        uint64_t now = time_us_64();
+        uint64_t elapsed_sec = (now - last_activity_us) / 1000000;
+
+        if (elapsed_sec >= OTA_TIMEOUT_SEC) {
+            printf("[OTA] Upload timeout after %llu seconds - aborting\n",
+                   (unsigned long long)elapsed_sec);
+            ota_abort();
+        }
+    }
 }

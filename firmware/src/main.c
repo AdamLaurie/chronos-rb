@@ -569,6 +569,7 @@ int main(void) {
             ntp_server_task();
             ptp_server_task();
             web_task();
+            ota_task();
             /* gptp_task(); - disabled */
         }
 

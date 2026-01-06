@@ -83,7 +83,7 @@ static const char HTML_PAGE[] =
 "h1{text-align:center;margin-bottom:8px;font-size:1.8em}"
 ".logo-ok{color:#4ade80;text-shadow:0 0 20px rgba(74,222,128,0.5)}"
 ".logo-error{color:#f87171;text-shadow:0 0 20px rgba(248,113,113,0.5)}"
-".time-display{text-align:center;font-size:2.5em;font-family:'Courier New',monospace;margin-bottom:15px}"
+".time-display{text-align:center;font-size:2.5em;font-family:'Courier New',monospace;margin-bottom:15px;min-width:280px}"
 ".time-valid{color:#4ade80;text-shadow:0 0 20px rgba(74,222,128,0.5)}"
 ".time-invalid{color:#f87171;text-shadow:0 0 20px rgba(248,113,113,0.5)}"
 ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:15px}"
@@ -109,7 +109,7 @@ static const char HTML_PAGE[] =
 "</head><body>"
 "<div class='container'>"
 "<h1 class='%s'>&#9883; CHRONOS-Rb</h1>"
-"<div class='time-display %s'>%s</div>"
+"<div id='time' class='time-display %s'>%s</div>"
 "<div class='nav'><a href='/'>Status</a> <a href='/config'>Config</a> <a href='/ota'>OTA</a></div>"
 "<div class='grid'>"
 "<div class='card'>"
@@ -177,16 +177,28 @@ static const char HTML_PAGE[] =
 "<span class='stat-value'>%s</span></div>"
 "<div class='stat'><span class='stat-label'>Satellites</span>"
 "<span class='stat-value'>%d</span></div>"
+"<div class='stat'><span class='stat-label'>Position</span>"
+"<span class='stat-value'><a href='%s' target='_blank' style='color:#4ade80'>%s</a></span></div>"
 "<div class='stat'><span class='stat-label'>GPS Time</span>"
 "<span class='stat-value'>%s</span></div>"
 "<div class='stat'><span class='stat-label'>GPS PPS</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>Firmware</span>"
 "<span class='stat-value'>%s</span></div>"
 "</div>"
 "</div>"
 "%s"
 "<footer>v%s | %s</footer>"
 "</div>"
-"<script>setTimeout(function(){location.reload()},5000)</script>"
+"<script>"
+"function updateTime(){"
+"fetch('/api/time').then(r=>r.json()).then(d=>{"
+"document.getElementById('time').textContent=d.time;"
+"document.getElementById('time').className='time-display '+(d.valid?'time-valid':'time-invalid');"
+"}).catch(()=>{});}"
+"setInterval(updateTime,500);"
+"setTimeout(function(){location.reload()},30000);"
+"</script>"
 "</body></html>";
 
 static const char CONFIG_PAGE[] =
@@ -552,6 +564,16 @@ static int generate_status_page(char *buf, size_t len) {
                  gps_t.hour, gps_t.minute, gps_t.second);
     }
 
+    /* GPS position with Google Maps link */
+    char gps_pos_str[32] = "N/A";
+    char gps_pos_url[64] = "#";
+    if (gps_has_fix()) {
+        double lat, lon, alt;
+        gps_get_position(&lat, &lon, &alt);
+        snprintf(gps_pos_str, sizeof(gps_pos_str), "%.4f, %.4f", lat, lon);
+        snprintf(gps_pos_url, sizeof(gps_pos_url), "https://maps.google.com/?q=%.6f,%.6f", lat, lon);
+    }
+
     return snprintf(buf, len, HTML_PAGE,
         logo_class, time_class, time_str,
         sync_class, led_class, sync_states[g_time_state.sync_state],
@@ -579,8 +601,11 @@ static int generate_status_page(char *buf, size_t len) {
         gps_is_enabled() ? "Enabled" : "Disabled",
         gps_fix_str,
         (int)gps_get_satellites(),
+        gps_pos_url,
+        gps_pos_str,
         gps_time_str,
         gps_pps_valid() ? "Valid" : "No signal",
+        gps_get_firmware_version(),
         pulse_html,
         CHRONOS_VERSION_STRING,
         CHRONOS_BUILD_DATE
@@ -675,7 +700,11 @@ static int generate_json_status(char *buf, size_t len) {
         "\"fix_type\":%d,"
         "\"pps_count\":%lu,"
         "\"nmea_count\":%lu,"
-        "\"nmea_errors\":%lu"
+        "\"nmea_errors\":%lu,"
+        "\"firmware\":\"%s\","
+        "\"hardware\":\"%s\","
+        "\"leap_seconds\":%d,"
+        "\"leap_valid\":%s"
         "},"
         "\"pulse_outputs\":%s,"
         "\"ip\":\"%s\","
@@ -713,6 +742,10 @@ static int generate_json_status(char *buf, size_t len) {
         (unsigned long)gps_get_state()->pps_count,
         (unsigned long)gps_get_state()->nmea_count,
         (unsigned long)gps_get_state()->nmea_errors,
+        gps_get_firmware_version(),
+        gps_get_hardware_version(),
+        (int)gps_get_leap_seconds(),
+        gps_leap_seconds_is_valid() ? "true" : "false",
         pulse_json,
         ip_str,
         CHRONOS_VERSION_STRING
@@ -952,8 +985,8 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
     pbuf_free(p);
 
     /* Allocate response buffer */
-    static char response[8192];
-    static char html_buf[12000];
+    static char response[20000];
+    static char html_buf[18000];
     static char cli_output[1024];
     const char *msg = NULL;
     const char *cli_out = NULL;
@@ -961,7 +994,16 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
     /* Parse HTTP method and path */
     bool is_post = (strncmp(request, "POST ", 5) == 0);
 
-    if (strstr(request, "/api/status") != NULL) {
+    if (strstr(request, "/api/time") != NULL) {
+        /* Lightweight time-only API for fast polling */
+        char time_str[32];
+        format_current_time(time_str, sizeof(time_str));
+        snprintf(response, sizeof(response),
+            "%s{\"time\":\"%s\",\"valid\":%s}",
+            HTTP_JSON_HEADER, time_str,
+            g_time_state.time_valid ? "true" : "false");
+
+    } else if (strstr(request, "/api/status") != NULL) {
         /* JSON status API */
         char json_buf[960];  /* Increased for GPS diagnostics */
         generate_json_status(json_buf, sizeof(json_buf));
@@ -1128,6 +1170,11 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
         sleep_ms(100);
         ota_apply_and_reboot();
         /* Won't return */
+
+    } else if (is_post && strstr(request, "/api/ota/abort") != NULL) {
+        /* OTA abort - cancel current upload */
+        ota_abort();
+        snprintf(response, sizeof(response), "%sAborted", HTTP_OK_TEXT);
 
     } else if (strstr(request, "/api/ota/status") != NULL) {
         /* OTA status JSON */

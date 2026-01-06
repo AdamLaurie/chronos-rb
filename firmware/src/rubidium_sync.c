@@ -36,6 +36,10 @@ static uint32_t subsecond_us = 0;        /* Microseconds within current second *
 static uint64_t last_pps_us = 0;         /* Timestamp of last PPS */
 static int64_t accumulated_offset = 0;   /* Accumulated time offset */
 
+/* GPS time synchronization state */
+static uint32_t pending_gps_time = 0;    /* GPS time to set on next PPS */
+static bool gps_time_pending = false;    /* True if we have a GPS time waiting */
+
 /* Rubidium status */
 static bool rb_lock_status = false;
 static uint32_t rb_lock_duration = 0;    /* Seconds since Rb locked */
@@ -120,11 +124,22 @@ void pps_irq_handler(void) {
     accumulated_offset += offset_ns;
 
     last_pps_us = pps_time;
-    
-    /* Increment seconds counter on PPS */
-    current_seconds++;
+
+    /* Apply pending GPS time if waiting
+     * GPS NMEA arrives ~300ms after the PPS it refers to
+     * So pending_gps_time is the time of the PREVIOUS GPS second
+     * This PPS marks the start of the NEXT second */
+    if (gps_time_pending) {
+        current_seconds = pending_gps_time + 1;
+        epoch_offset = 0;
+        gps_time_pending = false;
+        epoch_set = true;
+    } else {
+        /* Normal increment */
+        current_seconds++;
+    }
     subsecond_us = 0;
-    
+
     /* Update global time state */
     g_time_state.current_time.seconds = current_seconds;
     g_time_state.current_time.fraction = 0;
@@ -191,12 +206,15 @@ void rubidium_sync_task(void) {
         last_warmup_time = now;
     }
 
-    /* Set time from GPS if not already set (runs in any state) */
-    if (!epoch_set && gps_has_time()) {
+    /* Queue GPS time if not already set (will be applied on next PPS edge)
+     * GPS NMEA arrives ~300ms after the PPS pulse it describes
+     * So we queue the time and apply it on the next PPS edge with +1 second */
+    if (!epoch_set && !gps_time_pending && gps_has_time()) {
         uint32_t gps_time = gps_get_unix_time();
         if (gps_time > 0) {
-            printf("[RB] Setting time from GPS: %lu\n", gps_time);
-            set_time_unix(gps_time);
+            printf("[RB] Queueing GPS time %lu for next PPS edge\n", gps_time);
+            pending_gps_time = gps_time;
+            gps_time_pending = true;
         }
     }
 
@@ -472,4 +490,18 @@ uint32_t get_rb_warmup_time(void) {
  */
 uint32_t get_rb_lock_duration(void) {
     return rb_lock_duration;
+}
+
+/**
+ * Force time resync from GPS
+ * Clears the epoch flag and GPS state so fresh data will be used
+ */
+void force_time_resync(void) {
+    uint32_t irq = save_and_disable_interrupts();
+    epoch_set = false;
+    gps_time_pending = false;
+    pending_gps_time = 0;
+    restore_interrupts(irq);
+    gps_reset_time();  /* Flush UART and wait for fresh NMEA */
+    printf("[RB] Time resync requested - will sync on next PPS edge\n");
 }

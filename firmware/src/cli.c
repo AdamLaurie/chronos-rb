@@ -204,6 +204,11 @@ static void cmd_help(void) {
     cli_printf("GPS Receiver:\n");
     cli_printf("  gps                       - Show GPS status\n");
     cli_printf("  gps <on|off>              - Enable/disable GPS input\n");
+    cli_printf("  gps debug <on|off>        - Show incoming NMEA timestamps\n");
+    cli_printf("\n");
+    cli_printf("Time Sync:\n");
+    cli_printf("  sync                      - Force time resync from GPS\n");
+    cli_printf("  watch                     - Live time display (serial only)\n");
     cli_printf("\n");
 }
 
@@ -612,8 +617,8 @@ static void cmd_nmea(int argc, char **argv) {
     config_t *cfg = config_get();
 
     if (argc < 2) {
-        cli_printf("NMEA Output: %s (GP%d)\n",
-                   nmea_output_is_enabled() ? "ON" : "OFF", GPIO_NMEA_TX);
+        cli_printf("NMEA Output: %s (GP28)\n",
+                   nmea_output_is_enabled() ? "ON" : "OFF");
         cli_printf("Usage: nmea <on|off>\n");
         return;
     }
@@ -623,6 +628,77 @@ static void cmd_nmea(int argc, char **argv) {
     cfg->nmea_enabled = enable;
     cli_printf("NMEA %s\n", enable ? "enabled" : "disabled");
     cli_printf("Use 'config save' to persist settings\n");
+}
+
+/**
+ * Force time resync from GPS
+ */
+static void cmd_sync(void) {
+    if (!gps_has_time()) {
+        cli_printf("Error: GPS does not have valid time\n");
+        cli_printf("Wait for GPS fix before syncing\n");
+        return;
+    }
+
+    cli_printf("Forcing time resync from GPS...\n");
+    force_time_resync();
+
+    /* Wait a moment for the sync to happen */
+    sleep_ms(100);
+
+    if (gps_has_time()) {
+        gps_time_t t;
+        gps_get_utc_time(&t);
+        cli_printf("GPS time: %04d-%02d-%02d %02d:%02d:%02d UTC\n",
+                   t.year, t.month, t.day, t.hour, t.minute, t.second);
+        cli_printf("Time will be set on next GPS update\n");
+    }
+}
+
+/**
+ * Live time display - outputs current time every second for 30 seconds
+ */
+static void cmd_time_watch(void) {
+    printf("Live time display (30 seconds):\n");
+    printf("DEVICE     | GPS      | UNIX_TS\n");
+
+    uint32_t last_sec = 0;
+    int count = 0;
+
+    while (count < 30) {
+        /* Feed watchdog to prevent reset */
+        watchdog_update();
+
+        /* Get current time */
+        timestamp_t ts = get_current_time();
+        uint32_t unix_sec = ts.seconds - 2208988800UL;  /* Convert NTP to Unix */
+
+        /* Only print on second change */
+        if (unix_sec != last_sec) {
+            last_sec = unix_sec;
+            count++;
+
+            /* Calculate HMS from Unix timestamp */
+            uint32_t secs = unix_sec % 86400;
+            uint32_t hours = secs / 3600;
+            uint32_t mins = (secs % 3600) / 60;
+            uint32_t sec = secs % 60;
+
+            /* Get GPS time for comparison */
+            gps_time_t gps_t = {0};
+            if (gps_has_time()) {
+                gps_get_utc_time(&gps_t);
+            }
+
+            printf("%02lu:%02lu:%02lu | %02d:%02d:%02d | %lu\n",
+                   (unsigned long)hours, (unsigned long)mins, (unsigned long)sec,
+                   gps_t.hour, gps_t.minute, gps_t.second,
+                   (unsigned long)unix_sec);
+        }
+
+        sleep_ms(50);
+    }
+    printf("Done.\n");
 }
 
 /**
@@ -640,6 +716,10 @@ static void cmd_gps(int argc, char **argv) {
         cli_printf("\n");
         cli_printf("GPS Receiver Status:\n");
         cli_printf("  Enabled:        %s\n", gps_is_enabled() ? "YES" : "NO");
+        cli_printf("  Firmware:       %s\n", gps_get_firmware_version());
+        cli_printf("  Hardware:       %s\n", gps_get_hardware_version());
+        cli_printf("  Leap Seconds:   %d (%s)\n", gps_get_leap_seconds(),
+                   gps_leap_seconds_is_valid() ? "valid" : "invalid");
         cli_printf("  Fix:            %s\n", fix_str);
         cli_printf("  Satellites:     %d\n", gps_get_satellites());
         cli_printf("  Has Time:       %s\n", gps_has_time() ? "YES" : "NO");
@@ -661,9 +741,15 @@ static void cmd_gps(int argc, char **argv) {
         }
 
         cli_printf("\nPins: PPS=GP%d, RX=GP%d, TX=GP%d\n",
-                   GPIO_GPS_PPS_INPUT, GPIO_GPS_RX, GPIO_NMEA_TX);
+                   GPIO_GPS_PPS_INPUT, GPIO_GPS_RX, GPIO_GPS_TX);
         cli_printf("Usage: gps <on|off>\n");
         cli_printf("\n");
+        return;
+    }
+
+    if (strcmp(argv[1], "debug") == 0) {
+        bool enable = (argc > 2 && (strcmp(argv[2], "on") == 0 || strcmp(argv[2], "1") == 0));
+        gps_set_debug(enable);
         return;
     }
 
@@ -720,6 +806,10 @@ static void process_command(char *line) {
         cmd_nmea(argc, argv);
     } else if (strcmp(argv[0], "gps") == 0) {
         cmd_gps(argc, argv);
+    } else if (strcmp(argv[0], "sync") == 0) {
+        cmd_sync();
+    } else if (strcmp(argv[0], "watch") == 0) {
+        cmd_time_watch();
     } else {
         cli_printf("Unknown command: %s\n", argv[0]);
         cli_printf("Type 'help' for available commands\n");

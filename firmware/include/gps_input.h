@@ -7,8 +7,8 @@
  * - Position information for PTP/NTP
  *
  * Connections:
- *   GPS TX  -> GP29 (UART1 RX)
- *   GPS RX  <- GP28 (UART1 TX, optional for config)
+ *   GPS TX  -> GP5 (UART1 RX)
+ *   GPS RX  <- GP4 (UART1 TX, for UBX commands)
  *   GPS PPS -> GP11
  *   GPS VCC -> 3.3V
  *   GPS GND -> GND
@@ -92,6 +92,7 @@ gps_fix_type_t gps_get_fix_type(void);
 /* Time access */
 uint32_t gps_get_unix_time(void);
 void gps_get_utc_time(gps_time_t *time);
+uint64_t gps_get_last_nmea_us(void);
 
 /* PPS access */
 uint64_t gps_get_last_pps_us(void);
@@ -107,5 +108,14 @@ const gps_state_t* gps_get_state(void);
 /* Control */
 void gps_enable(bool enable);
 bool gps_is_enabled(void);
+void gps_reset_time(void);
+void gps_set_debug(bool enable);
+bool gps_get_debug(void);
+
+/* Module info */
+const char* gps_get_firmware_version(void);
+const char* gps_get_hardware_version(void);
+int8_t gps_get_leap_seconds(void);
+bool gps_leap_seconds_is_valid(void);
 
 #endif /* GPS_INPUT_H */

@@ -18,9 +18,9 @@
  * VERSION INFORMATION
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
-#define CHRONOS_VERSION_MINOR   3
-#define CHRONOS_VERSION_PATCH   0
-#define CHRONOS_VERSION_STRING  "1.3.0"
+#define CHRONOS_VERSION_MINOR   4
+#define CHRONOS_VERSION_PATCH   9
+#define CHRONOS_VERSION_STRING  "1.4.9"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
@@ -79,8 +79,8 @@
 #define GPIO_IRIG_B             27      /* GP27 - IRIG-B timecode */
 
 /* NMEA/GPS Serial (UART1) */
-#define GPIO_NMEA_TX            28      /* GP28 - NMEA 0183 UART TX (output) */
-#define GPIO_GPS_RX             5       /* GP5 - GPS NMEA UART1 RX (input from NEO-M8N) */
+#define GPIO_GPS_TX             4       /* GP4 - UART1 TX (commands to GPS module) */
+#define GPIO_GPS_RX             5       /* GP5 - UART1 RX (NMEA from GPS module) */
 
 /* Interval pulse timing */
 #define PULSE_WIDTH_MS          10      /* Output pulse width in milliseconds */
@@ -257,6 +257,7 @@ uint64_t get_time_us(void);
 void rubidium_sync_init(void);
 void rubidium_sync_task(void);
 bool rubidium_is_locked(void);
+void force_time_resync(void);
 
 /* PPS capture */
 void pps_capture_init(void);

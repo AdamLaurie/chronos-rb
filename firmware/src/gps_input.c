@@ -33,12 +33,225 @@
 #define NMEA_BUFFER_SIZE    128
 #define NMEA_FIELD_MAX      20
 
+/* Current GPS-UTC leap second offset (as of Jan 1, 2017) */
+#define GPS_LEAP_SECONDS    18
+
+/*============================================================================
+ * UBX PROTOCOL DEFINITIONS
+ *============================================================================*/
+
+#define UBX_SYNC1           0xB5
+#define UBX_SYNC2           0x62
+
+/* UBX Message Classes */
+#define UBX_CLASS_NAV       0x01
+#define UBX_CLASS_CFG       0x06
+#define UBX_CLASS_MGA       0x13
+
+/* UBX Message IDs */
+#define UBX_MGA_INI_TIME_UTC    0x40
+#define UBX_CFG_NAV5            0x24
+#define UBX_CFG_NAVX5           0x23
+#define UBX_NAV_TIMEUTC         0x21
+#define UBX_MON_VER             0x04
+#define UBX_NAV_TIMELS          0x26
+
+/* UBX Message Classes */
+#define UBX_CLASS_MON       0x0A
+
+/* GPS module firmware info (used by UBX parser, declared early) */
+static char gps_fw_version[32] = "Unknown";
+static char gps_hw_version[16] = "Unknown";
+
+/* Leap second info from UBX-NAV-TIMELS */
+static int8_t gps_leap_seconds = 0;
+static bool gps_leap_seconds_valid = false;
+
+/*============================================================================
+ * UBX PROTOCOL HELPERS
+ *============================================================================*/
+
+/**
+ * Send UBX message
+ */
+static void ubx_send(uint8_t msg_class, uint8_t msg_id, const uint8_t *payload, uint16_t len) {
+    uint8_t header[4] = {msg_class, msg_id, len & 0xFF, (len >> 8) & 0xFF};
+    uint8_t ck_a, ck_b;
+
+    /* Calculate checksum over class, id, length, and payload */
+    ck_a = 0;
+    ck_b = 0;
+    for (int i = 0; i < 4; i++) {
+        ck_a += header[i];
+        ck_b += ck_a;
+    }
+    for (uint16_t i = 0; i < len; i++) {
+        ck_a += payload[i];
+        ck_b += ck_a;
+    }
+
+    /* Send sync bytes */
+    uart_putc_raw(GPS_UART, UBX_SYNC1);
+    uart_putc_raw(GPS_UART, UBX_SYNC2);
+
+    /* Send header */
+    for (int i = 0; i < 4; i++) {
+        uart_putc_raw(GPS_UART, header[i]);
+    }
+
+    /* Send payload */
+    for (uint16_t i = 0; i < len; i++) {
+        uart_putc_raw(GPS_UART, payload[i]);
+    }
+
+    /* Send checksum */
+    uart_putc_raw(GPS_UART, ck_a);
+    uart_putc_raw(GPS_UART, ck_b);
+}
+
+/**
+ * Send UBX-MGA-INI-TIME_UTC to provide leap second info
+ * This tells the GPS module the current GPS-UTC offset so it doesn't
+ * have to wait 12.5 minutes for satellite almanac data
+ */
+static void ubx_send_leap_seconds(void) {
+    /* UBX-MGA-INI-TIME_UTC payload (24 bytes) */
+    uint8_t payload[24] = {0};
+
+    payload[0] = 0x10;              /* type: UTC time */
+    payload[1] = 0x00;              /* version */
+    payload[2] = 0x00;              /* ref: none (just providing leap seconds) */
+    payload[3] = GPS_LEAP_SECONDS;  /* leapSecs: current GPS-UTC offset */
+    /* bytes 4-11: time fields (leave as 0 - not providing time) */
+    /* bytes 12-15: ns (0) */
+    payload[16] = 0xFF;             /* tAccS low: unknown accuracy */
+    payload[17] = 0xFF;             /* tAccS high */
+    /* bytes 18-19: reserved */
+    payload[20] = 0xFF;             /* tAccNs low: unknown accuracy */
+    payload[21] = 0xFF;
+    payload[22] = 0xFF;
+    payload[23] = 0xFF;             /* tAccNs high */
+
+    ubx_send(UBX_CLASS_MGA, UBX_MGA_INI_TIME_UTC, payload, sizeof(payload));
+    printf("[GPS] Sent UBX-MGA-INI-TIME_UTC with leap seconds = %d\n", GPS_LEAP_SECONDS);
+}
+
+/**
+ * Request firmware version (UBX-MON-VER)
+ */
+static void ubx_request_version(void) {
+    /* Poll message - empty payload */
+    ubx_send(UBX_CLASS_MON, UBX_MON_VER, NULL, 0);
+}
+
+/**
+ * Request leap second info (UBX-NAV-TIMELS)
+ */
+static void ubx_request_timels(void) {
+    /* Poll message - empty payload */
+    ubx_send(UBX_CLASS_NAV, UBX_NAV_TIMELS, NULL, 0);
+}
+
+/**
+ * Buffer for UBX response parsing
+ */
+static uint8_t ubx_rx_buffer[256];
+static uint16_t ubx_rx_idx = 0;
+static uint8_t ubx_rx_state = 0;
+static uint16_t ubx_rx_len = 0;
+static uint8_t ubx_rx_class = 0;
+static uint8_t ubx_rx_id = 0;
+
+/**
+ * Process received UBX byte (called from task, not IRQ)
+ */
+static void ubx_process_byte(uint8_t c) {
+    switch (ubx_rx_state) {
+        case 0: /* Waiting for sync1 */
+            if (c == UBX_SYNC1) ubx_rx_state = 1;
+            break;
+        case 1: /* Waiting for sync2 */
+            if (c == UBX_SYNC2) ubx_rx_state = 2;
+            else ubx_rx_state = 0;
+            break;
+        case 2: /* Class */
+            ubx_rx_class = c;
+            ubx_rx_state = 3;
+            break;
+        case 3: /* ID */
+            ubx_rx_id = c;
+            ubx_rx_state = 4;
+            break;
+        case 4: /* Length low */
+            ubx_rx_len = c;
+            ubx_rx_state = 5;
+            break;
+        case 5: /* Length high */
+            ubx_rx_len |= (c << 8);
+            ubx_rx_idx = 0;
+            ubx_rx_state = (ubx_rx_len > 0) ? 6 : 7;
+            break;
+        case 6: /* Payload */
+            if (ubx_rx_idx < sizeof(ubx_rx_buffer)) {
+                ubx_rx_buffer[ubx_rx_idx++] = c;
+            }
+            if (ubx_rx_idx >= ubx_rx_len) ubx_rx_state = 7;
+            break;
+        case 7: /* Checksum A (ignore for now) */
+            ubx_rx_state = 8;
+            break;
+        case 8: /* Checksum B - message complete */
+            /* Process UBX-MON-VER response */
+            if (ubx_rx_class == UBX_CLASS_MON && ubx_rx_id == UBX_MON_VER && ubx_rx_len >= 40) {
+                /* First 30 bytes: SW version string */
+                /* Next 10 bytes: HW version string */
+                memset(gps_fw_version, 0, sizeof(gps_fw_version));
+                memset(gps_hw_version, 0, sizeof(gps_hw_version));
+                memcpy(gps_fw_version, ubx_rx_buffer, 30);
+                memcpy(gps_hw_version, ubx_rx_buffer + 30, 10);
+                /* Trim trailing spaces/nulls */
+                for (int i = 29; i >= 0 && (gps_fw_version[i] == ' ' || gps_fw_version[i] == '\0'); i--) {
+                    gps_fw_version[i] = '\0';
+                }
+                for (int i = 9; i >= 0 && (gps_hw_version[i] == ' ' || gps_hw_version[i] == '\0'); i--) {
+                    gps_hw_version[i] = '\0';
+                }
+                printf("[GPS] Firmware: %s\n", gps_fw_version);
+                printf("[GPS] Hardware: %s\n", gps_hw_version);
+            }
+            /* Process UBX-NAV-TIMELS response */
+            if (ubx_rx_class == UBX_CLASS_NAV && ubx_rx_id == UBX_NAV_TIMELS && ubx_rx_len >= 24) {
+                /* Offset 8: srcOfCurrLs (0=default, 1=GPS, 2=SBAS, etc.) */
+                /* Offset 9: currLs - current leap seconds */
+                /* Offset 23: valid flags (bit 0 = validCurrLs) */
+                uint8_t src = ubx_rx_buffer[8];
+                int8_t curr_ls = (int8_t)ubx_rx_buffer[9];
+                uint8_t valid = ubx_rx_buffer[23];
+                gps_leap_seconds = curr_ls;
+                gps_leap_seconds_valid = (valid & 0x01) != 0;
+                const char *src_str = "unknown";
+                if (src == 0) src_str = "default";
+                else if (src == 1) src_str = "GPS";
+                else if (src == 2) src_str = "SBAS";
+                else if (src == 3) src_str = "BeiDou";
+                else if (src == 4) src_str = "Galileo";
+                else if (src == 5) src_str = "GLONASS";
+                else if (src == 255) src_str = "none";
+                printf("[GPS] Leap seconds: %d (source: %s, valid: %s)\n",
+                       curr_ls, src_str, gps_leap_seconds_valid ? "yes" : "no");
+            }
+            ubx_rx_state = 0;
+            break;
+    }
+}
+
 /*============================================================================
  * STATE
  *============================================================================*/
 
 static gps_state_t gps_state;
 static volatile bool gps_enabled = true;
+static volatile bool gps_debug = false;
 
 /* PPS state - volatile for IRQ access */
 static volatile uint64_t gps_pps_timestamp = 0;
@@ -236,6 +449,12 @@ static void parse_gprmc(const char *sentence) {
         int year = (field[4] - '0') * 10 + (field[5] - '0');
         gps_state.time.year = (year < 80) ? 2000 + year : 1900 + year;
     }
+
+    if (gps_debug && gps_state.time.valid) {
+        printf("[GPS] RMC: %04d-%02d-%02d %02d:%02d:%02d UTC\n",
+               gps_state.time.year, gps_state.time.month, gps_state.time.day,
+               gps_state.time.hour, gps_state.time.minute, gps_state.time.second);
+    }
 }
 
 /**
@@ -382,8 +601,11 @@ static void gps_uart_handler(void) {
     while (uart_is_readable(GPS_UART)) {
         char c = uart_getc(GPS_UART);
 
+        /* Process UBX binary protocol (starts with 0xB5 0x62) */
+        ubx_process_byte((uint8_t)c);
+
         if (c == '$') {
-            /* Start of new sentence - reset state */
+            /* Start of new NMEA sentence - reset state */
             nmea_idx = 0;
             nmea_receiving = true;
             nmea_overflow = false;
@@ -418,6 +640,17 @@ static void gps_uart_handler(void) {
  *============================================================================*/
 
 /**
+ * Flush UART receive buffer
+ */
+static void gps_flush_uart(void) {
+    while (uart_is_readable(GPS_UART)) {
+        uart_getc(GPS_UART);
+    }
+    nmea_idx = 0;
+    nmea_receiving = false;
+}
+
+/**
  * Initialize GPS input
  */
 void gps_input_init(void) {
@@ -433,12 +666,15 @@ void gps_input_init(void) {
     /* Initialize UART1 for GPS */
     uart_init(GPS_UART, GPS_UART_BAUD);
     gpio_set_function(GPIO_GPS_RX, GPIO_FUNC_UART);
-    gpio_set_function(GPIO_NMEA_TX, GPIO_FUNC_UART);  /* TX for sending commands to GPS */
+    gpio_set_function(GPIO_GPS_TX, GPIO_FUNC_UART);  /* TX for sending commands to GPS */
 
     /* Configure UART */
     uart_set_hw_flow(GPS_UART, false, false);
     uart_set_format(GPS_UART, 8, 1, UART_PARITY_NONE);
     uart_set_fifo_enabled(GPS_UART, true);
+
+    /* Flush any stale data in UART buffer before enabling interrupts */
+    gps_flush_uart();
 
     /* Set up UART interrupt */
     irq_set_exclusive_handler(GPS_UART_IRQ, gps_uart_handler);
@@ -457,8 +693,24 @@ void gps_input_init(void) {
     gpio_set_irq_enabled_with_callback(GPIO_GPS_PPS_INPUT, GPIO_IRQ_EDGE_RISE, true,
                                        shared_gpio_callback);
 
-    printf("[GPS] UART1: GP%d (RX from GPS), GP%d (TX to GPS)\n", GPIO_GPS_RX, GPIO_NMEA_TX);
+    printf("[GPS] UART1: GP%d (RX from GPS), GP%d (TX to GPS)\n", GPIO_GPS_RX, GPIO_GPS_TX);
     printf("[GPS] PPS: GP%d (GPIO IRQ callback)\n", GPIO_GPS_PPS_INPUT);
+
+    /* Give GPS module time to start up, then configure it */
+    sleep_ms(500);
+
+    /* Request firmware version */
+    printf("[GPS] Requesting GPS module info...\n");
+    ubx_request_version();
+    sleep_ms(100);
+
+    /* Query current leap second status */
+    ubx_request_timels();
+    sleep_ms(100);
+
+    /* Send leap second configuration (may not work on all modules) */
+    ubx_send_leap_seconds();
+
     printf("[GPS] Waiting for GPS fix...\n");
 }
 
@@ -467,6 +719,8 @@ void gps_input_init(void) {
  * Processes PPS events from IRQ and checks timeouts
  */
 void gps_input_task(void) {
+    static uint64_t last_leap_query_us = 0;
+
     if (!gps_enabled) return;
 
     uint64_t now = time_us_64();
@@ -491,6 +745,23 @@ void gps_input_task(void) {
         gps_state.time.valid = false;
         gps_state.position.valid = false;
         gps_state.fix_type = GPS_FIX_NONE;
+    }
+
+    /* Periodically re-query leap second status (every 60 seconds) */
+    if (!gps_leap_seconds_valid && (now - last_leap_query_us) > 60000000ULL) {
+        ubx_request_timels();
+        last_leap_query_us = now;
+    }
+
+    /* Re-query firmware version if still unknown (every 10 seconds for first 2 minutes) */
+    static uint64_t last_ver_query_us = 0;
+    static int ver_query_count = 0;
+    if (strcmp(gps_fw_version, "Unknown") == 0 && ver_query_count < 12) {
+        if ((now - last_ver_query_us) > 10000000ULL) {  /* 10 seconds */
+            ubx_request_version();
+            last_ver_query_us = now;
+            ver_query_count++;
+        }
     }
 }
 
@@ -535,6 +806,13 @@ gps_fix_type_t gps_get_fix_type(void) {
 uint32_t gps_get_unix_time(void) {
     if (!gps_state.time.valid) return 0;
     return gps_time_to_unix(&gps_state.time);
+}
+
+/**
+ * Get timestamp of last NMEA time update
+ */
+uint64_t gps_get_last_nmea_us(void) {
+    return gps_state.last_nmea_us;
 }
 
 /**
@@ -612,4 +890,60 @@ void gps_enable(bool enable) {
  */
 bool gps_is_enabled(void) {
     return gps_enabled;
+}
+
+/**
+ * Reset GPS time state for resync
+ * Flushes UART and clears time validity so fresh data will be used
+ */
+void gps_reset_time(void) {
+    uint32_t irq = save_and_disable_interrupts();
+    gps_flush_uart();
+    gps_state.time.valid = false;
+    gps_state.last_nmea_us = 0;
+    restore_interrupts(irq);
+    printf("[GPS] Time state reset, waiting for fresh NMEA\n");
+}
+
+/**
+ * Enable/disable GPS debug output
+ */
+void gps_set_debug(bool enable) {
+    gps_debug = enable;
+    printf("[GPS] Debug %s\n", enable ? "enabled" : "disabled");
+}
+
+/**
+ * Check if GPS debug is enabled
+ */
+bool gps_get_debug(void) {
+    return gps_debug;
+}
+
+/**
+ * Get GPS module firmware version string
+ */
+const char* gps_get_firmware_version(void) {
+    return gps_fw_version;
+}
+
+/**
+ * Get GPS module hardware version string
+ */
+const char* gps_get_hardware_version(void) {
+    return gps_hw_version;
+}
+
+/**
+ * Get GPS module leap second info
+ */
+int8_t gps_get_leap_seconds(void) {
+    return gps_leap_seconds;
+}
+
+/**
+ * Check if GPS leap seconds are valid
+ */
+bool gps_leap_seconds_is_valid(void) {
+    return gps_leap_seconds_valid;
 }

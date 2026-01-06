@@ -25,6 +25,9 @@
 /* Maximum firmware size (slightly under 1MB to be safe) */
 #define OTA_MAX_FIRMWARE_SIZE   (1024 * 1024)
 
+/* OTA upload timeout in seconds (auto-abort if no data received) */
+#define OTA_TIMEOUT_SEC         60
+
 /*============================================================================
  * OTA STATUS CODES
  *============================================================================*/
@@ -112,6 +115,12 @@ ota_error_t ota_finish(void);
  * Abort current update and reset state
  */
 void ota_abort(void);
+
+/**
+ * OTA task - call periodically from main loop
+ * Handles timeout auto-abort
+ */
+void ota_task(void);
 
 /**
  * Apply the update and reboot
