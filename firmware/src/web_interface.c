@@ -74,6 +74,7 @@ static const char HTML_PAGE[] =
 "<!DOCTYPE html>"
 "<html><head>"
 "<title>⚛ CHRONOS-Rb Time Server</title>"
+"<link rel='icon' href=\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚛</text></svg>\">"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
 "<style>"
 "*{box-sizing:border-box;margin:0;padding:0}"
@@ -121,7 +122,7 @@ static const char HTML_PAGE[] =
 "<div class='stat'><span class='stat-label'>Time Valid</span>"
 "<span class='stat-value'>%s</span></div>"
 "<div class='stat'><span class='stat-label'>Uptime</span>"
-"<span class='stat-value'>%lu sec</span></div>"
+"<span class='stat-value'>%s</span></div>"
 "</div>"
 "<div class='card'>"
 "<h2>Time Discipline</h2>"
@@ -183,7 +184,19 @@ static const char HTML_PAGE[] =
 "<span class='stat-value'>%s</span></div>"
 "<div class='stat'><span class='stat-label'>GPS PPS</span>"
 "<span class='stat-value'>%s</span></div>"
-"<div class='stat'><span class='stat-label'>Firmware</span>"
+"<div class='stat'><span class='stat-label'>PPS Offset</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>PPS Drift</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>PPS Jitter</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>FE PPS Captures</span>"
+"<span class='stat-value'>%lu</span></div>"
+"<div class='stat'><span class='stat-label'>GPS PPS Captures</span>"
+"<span class='stat-value'>%lu</span></div>"
+"<div class='stat'><span class='stat-label'>GPS Firmware</span>"
+"<span class='stat-value'>%s</span></div>"
+"<div class='stat'><span class='stat-label'>GPS Hardware</span>"
 "<span class='stat-value'>%s</span></div>"
 "</div>"
 "</div>"
@@ -205,6 +218,7 @@ static const char CONFIG_PAGE[] =
 "<!DOCTYPE html>"
 "<html><head>"
 "<title>⚛ CHRONOS-Rb Configuration</title>"
+"<link rel='icon' href=\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚛</text></svg>\">"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
 "<style>"
 "*{box-sizing:border-box;margin:0;padding:0}"
@@ -289,6 +303,7 @@ static const char OTA_PAGE[] =
 "<!DOCTYPE html>"
 "<html><head>"
 "<title>⚛ CHRONOS-Rb OTA Update</title>"
+"<link rel='icon' href=\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚛</text></svg>\">"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
 "<style>"
 "*{box-sizing:border-box;margin:0;padding:0}"
@@ -574,12 +589,43 @@ static int generate_status_page(char *buf, size_t len) {
         snprintf(gps_pos_url, sizeof(gps_pos_url), "https://maps.google.com/?q=%.6f,%.6f", lat, lon);
     }
 
+    /* Format uptime as days:hours:minutes:seconds */
+    char uptime_str[24];
+    uint32_t uptime_sec = (uint32_t)(time_us_64() / 1000000);
+    uint32_t days = uptime_sec / 86400;
+    uint32_t hours = (uptime_sec % 86400) / 3600;
+    uint32_t mins = (uptime_sec % 3600) / 60;
+    uint32_t secs = uptime_sec % 60;
+    if (days > 0) {
+        snprintf(uptime_str, sizeof(uptime_str), "%lud %02lu:%02lu:%02lu",
+                 (unsigned long)days, (unsigned long)hours, (unsigned long)mins, (unsigned long)secs);
+    } else {
+        snprintf(uptime_str, sizeof(uptime_str), "%02lu:%02lu:%02lu",
+                 (unsigned long)hours, (unsigned long)mins, (unsigned long)secs);
+    }
+
+    /* PPS offset, drift and jitter (FE PPS vs GPS PPS) */
+    char pps_offset_str[32] = "N/A";
+    char pps_drift_str[32] = "N/A";
+    char pps_jitter_str[32] = "N/A";
+    if (freq_counter_pps_offset_valid()) {
+        int32_t offset = freq_counter_get_pps_offset();
+        double drift = freq_counter_get_pps_drift();
+        double stddev = freq_counter_get_pps_stddev();
+        /* Offset in ticks (100ns units) */
+        snprintf(pps_offset_str, sizeof(pps_offset_str), "%+ld ticks", (long)offset);
+        /* Drift in ticks/sec, convert to ns/s for display */
+        snprintf(pps_drift_str, sizeof(pps_drift_str), "%+.1f ns/s", drift * 100.0);
+        /* Jitter (stddev) in ticks, convert to ns */
+        snprintf(pps_jitter_str, sizeof(pps_jitter_str), "%.1f ns", stddev * 100.0);
+    }
+
     return snprintf(buf, len, HTML_PAGE,
         logo_class, time_class, time_str,
         sync_class, led_class, sync_states[g_time_state.sync_state],
         g_time_state.rb_locked ? "LOCKED" : "UNLOCKED",
         g_time_state.time_valid ? "YES" : "NO",
-        (unsigned long)(time_us_64() / 1000000),
+        uptime_str,
         (long long)g_time_state.offset_ns,
         (double)g_time_state.frequency_offset,
         (unsigned long)g_time_state.pps_count,
@@ -605,7 +651,13 @@ static int generate_status_page(char *buf, size_t len) {
         gps_pos_str,
         gps_time_str,
         gps_pps_valid() ? "Valid" : "No signal",
+        pps_offset_str,
+        pps_drift_str,
+        pps_jitter_str,
+        (unsigned long)freq_counter_get_fe_pps_count(),
+        (unsigned long)freq_counter_get_gps_pps_count(),
         gps_get_firmware_version(),
+        gps_get_hardware_version(),
         pulse_html,
         CHRONOS_VERSION_STRING,
         CHRONOS_BUILD_DATE

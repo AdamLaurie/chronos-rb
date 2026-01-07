@@ -56,9 +56,82 @@ gate_done:
     irq nowait 1
 .wrap
 
+; PPS edge capture with 10MHz counter
+; Counts 10MHz continuously, captures count at PPS rising edge
+; Used for both FE PPS and GPS PPS - one instance each
+;
+; Pin mapping:
+;   - IN pin 0: 10MHz input
+;   - JMP pin: PPS input (FE or GPS)
+;
+; Pushes captured count to FIFO on each PPS rising edge
+; Count is in 10MHz ticks (100ns resolution)
+;
+; IMPORTANT: Counts continuously even while PPS is high.
+; Uses Y register as state flag: Y=0 means waiting for rising edge,
+; Y=non-zero means already captured this pulse.
+.program pps_capture
+
+    set y, 0                    ; Initialize: waiting for rising edge
+
+.wrap_target
+main_loop:
+    ; Count one 10MHz edge
+    wait 0 pin 0                ; Wait for 10MHz low
+    wait 1 pin 0                ; Wait for 10MHz high
+    jmp x-- check_pps           ; Count it, then check PPS state
+
+check_pps:
+    jmp pin pps_is_high         ; If PPS high, handle it
+    ; PPS is low - reset state flag and continue counting
+    set y, 0
+    jmp main_loop
+
+pps_is_high:
+    ; PPS is high - check if we need to capture (rising edge)
+    jmp !y do_capture           ; If Y=0, this is a rising edge
+    jmp main_loop               ; Y!=0, already captured, keep counting
+
+do_capture:
+    mov isr, ~x                 ; Capture inverted X (positive count)
+    push noblock                ; Push to FIFO
+    set y, 1                    ; Mark that we captured this pulse
+    jmp main_loop
+.wrap
+
 % c-sdk {
 #include "hardware/clocks.h"
 #include "hardware/gpio.h"
+
+static inline void pps_capture_program_init(PIO pio, uint sm, uint offset,
+                                             uint mhz_pin, uint pps_pin) {
+    pio_sm_config c = pps_capture_program_get_default_config(offset);
+
+    // IN pin for 10MHz input (used by wait instructions)
+    sm_config_set_in_pins(&c, mhz_pin);
+
+    // JMP pin for PPS input (used by jmp pin instructions)
+    sm_config_set_jmp_pin(&c, pps_pin);
+
+    // Run at system clock for maximum speed
+    sm_config_set_clkdiv(&c, 1.0);
+
+    // Load configuration
+    pio_sm_init(pio, sm, offset, &c);
+
+    // Initialize X to 0 (will count down, wrapping around)
+    pio_sm_exec(pio, sm, pio_encode_set(pio_x, 0));
+}
+
+// Read captured count from FIFO (non-blocking)
+// Returns true if a capture was available
+static inline bool pps_capture_read(PIO pio, uint sm, uint32_t *count) {
+    if (pio_sm_is_rx_fifo_empty(pio, sm)) {
+        return false;
+    }
+    *count = pio_sm_get(pio, sm);
+    return true;
+}
 
 static inline void freq_counter_program_init(PIO pio, uint sm, uint offset,
                                               uint mhz_pin, uint pps_pin) {

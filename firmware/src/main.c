@@ -561,6 +561,9 @@ int main(void) {
         /* Run all tasks */
         rubidium_sync_task();
 
+        /* Poll PPS capture FIFOs for offset measurement */
+        freq_counter_pps_task();
+
         /* WiFi auto-connect (non-blocking) */
         wifi_auto_connect_task();
 

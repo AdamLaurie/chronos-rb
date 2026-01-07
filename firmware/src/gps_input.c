@@ -582,7 +582,8 @@ static void process_nmea_sentence(const char *sentence) {
  */
 static void shared_gpio_callback(uint gpio, uint32_t events) {
     if (gpio == GPIO_GPS_PPS_INPUT && (events & GPIO_IRQ_EDGE_RISE)) {
-        /* GPS PPS */
+        /* GPS PPS - capture 10MHz counter first for accurate offset */
+        freq_counter_capture_gps_pps();
         gps_pps_timestamp = time_us_64();
         gps_pps_count++;
         gps_pps_triggered = true;
@@ -947,3 +948,4 @@ int8_t gps_get_leap_seconds(void) {
 bool gps_leap_seconds_is_valid(void) {
     return gps_leap_seconds_valid;
 }
+
