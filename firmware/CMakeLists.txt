@@ -45,6 +45,7 @@ add_executable(chronos_rb
     src/main.c
     src/cli.c
     src/config.c
+    src/log_buffer.c
     src/pulse_output.c
     src/ac_freq_monitor.c
     src/ntp_server.c

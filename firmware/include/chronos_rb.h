@@ -19,8 +19,8 @@
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
 #define CHRONOS_VERSION_MINOR   4
-#define CHRONOS_VERSION_PATCH   43
-#define CHRONOS_VERSION_STRING  "1.4.43"
+#define CHRONOS_VERSION_PATCH   57
+#define CHRONOS_VERSION_STRING  "1.4.57"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
@@ -161,7 +161,7 @@
 #define MAX_PTP_CLIENTS         16
 
 #define TIMESTAMP_BUFFER_SIZE   64
-#define LOG_BUFFER_SIZE         4096
+#define LOG_BUFFER_SIZE         8192
 
 /*============================================================================
  * DATA STRUCTURES

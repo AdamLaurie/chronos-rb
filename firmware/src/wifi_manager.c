@@ -15,6 +15,7 @@
 #include "lwip/netif.h"
 
 #include "chronos_rb.h"
+#include "config.h"
 
 /*============================================================================
  * PRIVATE VARIABLES
@@ -171,41 +172,73 @@ void get_ip_address_str(char *buf, size_t len) {
  * WIFI TASK
  *============================================================================*/
 
+/* Track if network services have been started */
+static bool network_services_started = false;
+
+void wifi_mark_services_started(void) {
+    network_services_started = true;
+}
+
 /**
  * WiFi maintenance task - call periodically
+ * Handles connection monitoring and automatic reconnection
  */
 void wifi_task(void) {
     static uint64_t last_check = 0;
+    static uint64_t last_reconnect_attempt = 0;
     uint64_t now = time_us_64();
-    
+
     /* Check connection status every second */
     if (now - last_check < 1000000) {
         return;
     }
     last_check = now;
-    
+
     if (!wifi_initialized) {
         return;
     }
-    
+
+    /* Poll lwIP regardless of connection state */
+    cyw43_arch_poll();
+
     /* Check link status */
     int link_status = cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
-    
+
     if (wifi_connected && link_status != CYW43_LINK_JOIN) {
-        /* Lost connection */
+        /* Lost connection - clean up driver state */
         printf("[WIFI] Connection lost (status %d)\n", link_status);
+        cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
         wifi_connected = false;
         g_wifi_connected = false;
         ip_address = 0;
         disconnection_count++;
-        
-        /* Attempt reconnection */
-        printf("[WIFI] Attempting reconnection...\n");
-        wifi_connect(current_ssid, "");  /* Will need stored password */
     }
-    
-    /* Poll lwIP */
-    cyw43_arch_poll();
+
+    /* Periodic reconnection if not connected and auto-connect enabled */
+    if (!wifi_connected && config_wifi_auto_connect_enabled()) {
+        /* Try every 30 seconds */
+        if (now - last_reconnect_attempt > 30000000ULL) {
+            last_reconnect_attempt = now;
+            config_t *cfg = config_get();
+            printf("[WIFI] Attempting reconnection to '%s'...\n", cfg->wifi_ssid);
+
+            if (wifi_connect(cfg->wifi_ssid, cfg->wifi_pass)) {
+                printf("[WIFI] Reconnection successful!\n");
+
+                /* Start network services if not already started */
+                if (!network_services_started) {
+                    extern void ntp_server_init(void);
+                    extern void ptp_server_init(void);
+                    extern void web_init(void);
+                    ntp_server_init();
+                    ptp_server_init();
+                    web_init();
+                    network_services_started = true;
+                    printf("[WIFI] Network services started\n");
+                }
+            }
+        }
+    }
 }
 
 /**

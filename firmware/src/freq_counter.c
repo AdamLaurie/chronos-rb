@@ -122,7 +122,7 @@ static void freq_counter_irq_handler(void) {
  */
 void freq_counter_init(void) {
     printf("[FREQ] Initializing hardware frequency counter\n");
-    printf("[FREQ] 10MHz input: GPIO %d, FE PPS: GPIO %d, GPS PPS: GPIO %d\n",
+    printf("[FREQ] 10MHz input: GPIO %d, Rb PPS: GPIO %d, GPS PPS: GPIO %d\n",
            GPIO_10MHZ_INPUT, GPIO_PPS_INPUT, GPIO_GPS_PPS_INPUT);
 
     /* Ensure GPS PPS pin is configured as input (needed before gps_input_init) */
@@ -157,7 +157,7 @@ void freq_counter_init(void) {
     pio_sm_set_enabled(freq_pio, fe_pps_sm, true);
 
     printf("[FREQ] PIO counter started, expected count: %lu\n", EXPECTED_COUNT);
-    printf("[FREQ] PPS capture SMs: FE=SM2, GPS=SM3 (SM1 broken)\n");
+    printf("[FREQ] PPS capture SMs: Rb=SM2, GPS=SM3 (SM1 broken)\n");
     printf("[FREQ] Waiting for PPS signals...\n");
 }
 
@@ -337,13 +337,13 @@ static uint32_t gps_pps_debug_count = 0;
 void freq_counter_pps_task(void) {
     uint32_t count;
 
-    /* Poll FE PPS capture FIFO */
+    /* Poll Rb PPS capture FIFO */
     if (pps_capture_read(freq_pio, fe_pps_sm, &count)) {
         fe_pps_capture_count = count;
         fe_pps_capture_valid = true;
         fe_pps_debug_count++;
         if (fe_pps_debug_count <= 5) {
-            printf("[FREQ] FE PPS capture #%lu: %lu\n",
+            printf("[FREQ] Rb PPS capture #%lu: %lu\n",
                    (unsigned long)fe_pps_debug_count, (unsigned long)count);
         }
     }

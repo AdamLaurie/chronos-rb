@@ -55,19 +55,16 @@ void ac_zero_cross_irq_handler(void) {
 
 /**
  * Calculate frequency from period
- * Note: Zero-crossing fires twice per AC cycle, so we divide by 2
+ * Note: Zero-crossing detector fires once per AC cycle
  */
 static float period_to_frequency(uint32_t period_us) {
     if (period_us == 0) {
         return 0.0f;
     }
 
-    /* Period is half-cycle (zero-cross fires on both polarities)
-     * Full cycle period = 2 * half_period
-     * Frequency = 1 / full_period = 1 / (2 * half_period)
-     */
-    float half_period_sec = (float)period_us / 1000000.0f;
-    return 1.0f / (2.0f * half_period_sec);
+    /* Period is full cycle (one pulse per AC cycle) */
+    float period_sec = (float)period_us / 1000000.0f;
+    return 1.0f / period_sec;
 }
 
 /**

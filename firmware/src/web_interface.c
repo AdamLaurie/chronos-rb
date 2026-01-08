@@ -18,6 +18,7 @@
 #include "ac_freq_monitor.h"
 #include "pulse_output.h"
 #include "cli.h"
+#include "log_buffer.h"
 #include "ota_update.h"
 #include "radio_timecode.h"
 #include "nmea_output.h"
@@ -155,7 +156,7 @@ static const char HTML_PAGE[] =
 "<div class='stat'><span class='stat-label'>Average</span>"
 "<span class='stat-value'>%.3f Hz</span></div>"
 "<div class='stat'><span class='stat-label'>Range</span>"
-"<span class='stat-value'>%.1f - %.1f Hz</span></div>"
+"<span class='stat-value'>%.3f - %.3f Hz</span></div>"
 "</div>"
 "<div class='card'>"
 "<h2>RF Outputs</h2>"
@@ -190,7 +191,7 @@ static const char HTML_PAGE[] =
 "<span class='stat-value'>%s</span></div>"
 "<div class='stat'><span class='stat-label'>PPS Jitter</span>"
 "<span class='stat-value'>%s</span></div>"
-"<div class='stat'><span class='stat-label'>FE PPS Captures</span>"
+"<div class='stat'><span class='stat-label'>Rb PPS Captures</span>"
 "<span class='stat-value'>%lu</span></div>"
 "<div class='stat'><span class='stat-label'>GPS PPS Captures</span>"
 "<span class='stat-value'>%lu</span></div>"
@@ -253,11 +254,10 @@ static const char CONFIG_PAGE[] =
 ".stat-value{font-family:'Courier New',monospace;font-size:0.9em}"
 ".note{color:#888;font-size:0.85em;margin-top:10px}"
 ".cli-output{background:#0a0a12;border-radius:8px;padding:12px;font-family:'Courier New',monospace;"
-"font-size:0.85em;white-space:pre-wrap;max-height:300px;overflow-y:auto;margin-bottom:15px;color:#0f0}"
-".cli-input{display:flex;gap:10px;width:100%%}"
-".cli-input input{flex-grow:1;min-width:0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);"
-"border-radius:8px;padding:10px;color:#fff;font-family:'Courier New',monospace}"
-".cli-input button{padding:10px 20px;flex-shrink:0}"
+"font-size:12px;white-space:pre;height:60em;line-height:1.2em;overflow:auto;margin-bottom:15px;color:#0f0}"
+".cli-input input{width:100%%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);"
+"border-radius:8px;padding:10px;color:#fff;font-family:'Courier New',monospace;font-size:12px;margin-bottom:10px}"
+".cli-input button{width:100%%}"
 "footer{text-align:center;margin-top:30px;color:#666;font-size:0.9em}"
 "</style>"
 "</head><body>"
@@ -289,14 +289,43 @@ static const char CONFIG_PAGE[] =
 "%s"
 "<div class='card'>"
 "<h2>Command Line</h2>"
-"<div class='cli-output'>%s</div>"
-"<form method='POST' action='/cli' class='cli-input'>"
-"<input type='text' name='cmd' placeholder='Enter command (e.g., help, status, pulse list)' autocomplete='off'>"
-"<button type='submit'>Run</button>"
-"</form>"
+"<div class='cli-output' id='cli-out'>Type a command and press Run</div>"
+"<div class='cli-input'>"
+"<input type='text' id='cli-cmd' placeholder='Enter command (e.g., help, status, reboot)' autocomplete='off'>"
+"<button onclick='runCmd()'>Run</button>"
+"</div>"
 "</div>"
 "<footer>CHRONOS-Rb v%s</footer>"
 "</div>"
+"<script>"
+"var logPos=0,logOut=document.getElementById('cli-out');"
+"function appendLog(txt){"
+"if(!txt)return;"
+"logOut.textContent+=txt;"
+"logOut.scrollTop=logOut.scrollHeight;"
+"}"
+"function pollLogs(){"
+"fetch('/api/logs?pos='+logPos)"
+".then(r=>r.json()).then(d=>{"
+"logPos=d.pos;appendLog(d.data);"
+"}).catch(e=>{});"
+"}"
+"function runCmd(){"
+"var i=document.getElementById('cli-cmd'),cmd=i.value;"
+"if(!cmd)return;"
+"i.value='';"
+"fetch('/api/cli',{method:'POST',body:'cmd='+encodeURIComponent(cmd),"
+"headers:{'Content-Type':'application/x-www-form-urlencoded'}})"
+".then(r=>r.json()).then(d=>{"
+"if(d.ok)appendLog('> '+cmd+'\\n'+d.output+'\\n');else appendLog('Error: '+d.error+'\\n');"
+"}).catch(e=>{appendLog('Error: '+e+'\\n');});"
+"}"
+"document.getElementById('cli-cmd').addEventListener('keypress',function(e){"
+"if(e.key==='Enter')runCmd();});"
+"setInterval(pollLogs,1000);"
+"logOut.textContent='';"
+"pollLogs();"
+"</script>"
 "</body></html>";
 
 static const char OTA_PAGE[] =
@@ -887,7 +916,7 @@ static int generate_pulse_config_html(char *buf, size_t len) {
 /**
  * Generate config page HTML
  */
-static int generate_config_page(char *buf, size_t len, const char *message, const char *cli_output) {
+static int generate_config_page(char *buf, size_t len, const char *message) {
     config_t *cfg = config_get();
 
     /* Generate pulse outputs section */
@@ -900,7 +929,6 @@ static int generate_config_page(char *buf, size_t len, const char *message, cons
         cfg->wifi_enabled ? "checked" : "",
         g_debug_enabled ? "checked" : "",
         pulse_html,
-        cli_output ? cli_output : "Type a command and press Run",
         CHRONOS_VERSION_STRING
     );
 }
@@ -1086,9 +1114,8 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
     /* Allocate response buffer */
     static char response[20000];
     static char html_buf[18000];
-    static char cli_output[1024];
+    static char cli_output[4096];
     const char *msg = NULL;
-    const char *cli_out = NULL;
 
     /* Parse HTTP method and path */
     bool is_post = (strncmp(request, "POST ", 5) == 0);
@@ -1158,8 +1185,8 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
         }
         snprintf(response, sizeof(response), "%s{\"ok\":true}", HTTP_JSON_HEADER);
 
-    } else if (is_post && strstr(request, "/cli") != NULL) {
-        /* POST /cli - execute CLI command */
+    } else if (is_post && strstr(request, "/api/cli") != NULL) {
+        /* POST /api/cli - execute CLI command and return JSON */
         const char *body = strstr(request, "\r\n\r\n");
         if (body) {
             body += 4;
@@ -1167,11 +1194,57 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
             parse_form_field(body, "cmd", cmd, sizeof(cmd));
             if (cmd[0]) {
                 cli_execute(cmd, cli_output, sizeof(cli_output));
-                cli_out = cli_output;
+                /* Escape output for JSON */
+                static char escaped[8192];
+                char *out = escaped;
+                for (const char *p = cli_output; *p && out < escaped + sizeof(escaped) - 6; p++) {
+                    if (*p == '"') { *out++ = '\\'; *out++ = '"'; }
+                    else if (*p == '\\') { *out++ = '\\'; *out++ = '\\'; }
+                    else if (*p == '\n') { *out++ = '\\'; *out++ = 'n'; }
+                    else if (*p == '\r') { *out++ = '\\'; *out++ = 'r'; }
+                    else if (*p == '\t') { *out++ = '\\'; *out++ = 't'; }
+                    else if ((unsigned char)*p >= 32) { *out++ = *p; }
+                }
+                *out = '\0';
+                snprintf(response, sizeof(response), "%s{\"ok\":true,\"output\":\"%s\"}", HTTP_JSON_HEADER, escaped);
+            } else {
+                snprintf(response, sizeof(response), "%s{\"ok\":false,\"error\":\"No command\"}", HTTP_JSON_HEADER);
             }
+        } else {
+            snprintf(response, sizeof(response), "%s{\"ok\":false,\"error\":\"No body\"}", HTTP_JSON_HEADER);
         }
-        generate_config_page(html_buf, sizeof(html_buf), NULL, cli_out);
-        snprintf(response, sizeof(response), "%s%s", HTTP_RESPONSE_HEADER, html_buf);
+
+    } else if (strstr(request, "/api/logs") != NULL) {
+        /* GET /api/logs?pos=N - get log output since position N */
+        static uint32_t client_pos = 0;  /* Track position per connection */
+
+        /* Parse position parameter */
+        const char *pos_param = strstr(request, "pos=");
+        if (pos_param) {
+            client_pos = (uint32_t)strtoul(pos_param + 4, NULL, 10);
+        }
+
+        /* Read logs into buffer */
+        static char log_buf[4096];
+        size_t log_len = log_buffer_read(log_buf, sizeof(log_buf), &client_pos);
+
+        /* Escape for JSON */
+        static char escaped[8192];
+        char *out = escaped;
+        for (size_t i = 0; i < log_len && out < escaped + sizeof(escaped) - 6; i++) {
+            char c = log_buf[i];
+            if (c == '"') { *out++ = '\\'; *out++ = '"'; }
+            else if (c == '\\') { *out++ = '\\'; *out++ = '\\'; }
+            else if (c == '\n') { *out++ = '\\'; *out++ = 'n'; }
+            else if (c == '\r') { *out++ = '\\'; *out++ = 'r'; }
+            else if (c == '\t') { *out++ = '\\'; *out++ = 't'; }
+            else if ((unsigned char)c >= 32) { *out++ = c; }
+        }
+        *out = '\0';
+
+        snprintf(response, sizeof(response),
+            "%s{\"pos\":%lu,\"data\":\"%s\"}",
+            HTTP_JSON_HEADER, (unsigned long)client_pos, escaped);
 
     } else if (is_post && strstr(request, "/config") != NULL) {
         /* POST /config - save configuration */
@@ -1200,12 +1273,12 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
                 msg = "<div class='msg msg-err'>Failed to save configuration</div>";
             }
         }
-        generate_config_page(html_buf, sizeof(html_buf), msg, NULL);
+        generate_config_page(html_buf, sizeof(html_buf), msg);
         snprintf(response, sizeof(response), "%s%s", HTTP_RESPONSE_HEADER, html_buf);
 
     } else if (strstr(request, "GET /config") != NULL) {
         /* GET /config - show config page */
-        generate_config_page(html_buf, sizeof(html_buf), NULL, NULL);
+        generate_config_page(html_buf, sizeof(html_buf), NULL);
         snprintf(response, sizeof(response), "%s%s", HTTP_RESPONSE_HEADER, html_buf);
 
     } else if (strstr(request, "GET / ") != NULL || strstr(request, "GET /index") != NULL) {

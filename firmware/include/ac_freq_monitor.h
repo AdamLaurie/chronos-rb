@@ -34,7 +34,7 @@
 #define AC_FREQ_TIMEOUT_MS          100     /* Timeout for signal loss */
 
 /* History buffer for averaging */
-#define AC_FREQ_HISTORY_SIZE        10      /* Number of measurements to average */
+#define AC_FREQ_HISTORY_SIZE        300     /* Number of samples for averaging (~5 sec) */
 
 /*============================================================================
  * DATA STRUCTURES

@@ -22,6 +22,7 @@
 #include "pulse_output.h"
 #include "ac_freq_monitor.h"
 #include "config.h"
+#include "log_buffer.h"
 #include "ota_update.h"
 #include "pps_generator.h"
 
@@ -291,10 +292,13 @@ static void print_banner(void) {
 void chronos_init(void) {
     /* Initialize stdio for debug output */
     stdio_init_all();
-    
+
+    /* Initialize log buffer to capture printf output for web interface */
+    log_buffer_init();
+
     /* Small delay for USB enumeration */
     sleep_ms(2000);
-    
+
     print_banner();
     
     printf("[INIT] Initializing GPIO...\n");
@@ -332,9 +336,6 @@ void chronos_init(void) {
     printf("[INIT] Initializing pulse outputs...\n");
     pulse_output_init();
 
-    printf("[INIT] Initializing AC frequency monitor...\n");
-    ac_freq_init();
-
     printf("[INIT] Initializing CLI...\n");
     cli_init();
 
@@ -347,8 +348,14 @@ void chronos_init(void) {
     printf("[INIT] Initializing radio timecode outputs...\n");
     radio_timecode_init();
 
+    /* GPS input must be initialized BEFORE AC frequency monitor because
+     * gps_input_init() registers the shared GPIO callback that handles
+     * both GPS PPS (GP11) and AC zero crossing (GP19) interrupts */
     printf("[INIT] Initializing GPS receiver input...\n");
     gps_input_init();
+
+    printf("[INIT] Initializing AC frequency monitor...\n");
+    ac_freq_init();
 
     /* Apply RF, NMEA, and GPS settings from config */
     {
@@ -425,6 +432,8 @@ static void wifi_auto_connect_task(void) {
                     gptp_init();
                     nts_init();
                     */
+                    extern void wifi_mark_services_started(void);
+                    wifi_mark_services_started();
                     printf("[WIFI] Network services started\n");
                     wifi_auto_state = WIFI_AUTO_DONE;
                 } else {
@@ -567,8 +576,10 @@ int main(void) {
         /* WiFi auto-connect (non-blocking) */
         wifi_auto_connect_task();
 
+        /* WiFi task handles reconnection - call always */
+        wifi_task();
+
         if (g_wifi_connected) {
-            wifi_task();
             ntp_server_task();
             ptp_server_task();
             web_task();
