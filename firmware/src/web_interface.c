@@ -94,7 +94,7 @@ static const char HTML_PAGE[] =
 ".stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)}"
 ".stat:last-child{border-bottom:none}"
 ".stat-label{color:#888;font-size:0.9em}"
-".stat-value{font-weight:bold;font-family:'Courier New',monospace;font-size:0.9em}"
+".stat-value{font-weight:bold;font-family:'Courier New',monospace;font-size:0.9em;text-align:right}"
 ".status-locked{color:#4ade80}"
 ".status-syncing{color:#fbbf24}"
 ".status-error{color:#f87171}"
@@ -585,7 +585,7 @@ static int generate_status_page(char *buf, size_t len) {
     if (gps_has_fix()) {
         double lat, lon, alt;
         gps_get_position(&lat, &lon, &alt);
-        snprintf(gps_pos_str, sizeof(gps_pos_str), "%.4f, %.4f", lat, lon);
+        snprintf(gps_pos_str, sizeof(gps_pos_str), "Google Maps");
         snprintf(gps_pos_url, sizeof(gps_pos_url), "https://maps.google.com/?q=%.6f,%.6f", lat, lon);
     }
 
@@ -650,7 +650,7 @@ static int generate_status_page(char *buf, size_t len) {
         gps_pos_url,
         gps_pos_str,
         gps_time_str,
-        gps_pps_valid() ? "Valid" : "No signal",
+        gps_pps_valid() ? "Active" : "No signal",
         pps_offset_str,
         pps_drift_str,
         pps_jitter_str,
@@ -1017,21 +1017,68 @@ static err_t web_sent_callback(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     return ERR_OK;
 }
 
+/* OTA chunk buffering state */
+static uint8_t ota_chunk_buf[1280];  /* Buffer for OTA chunk data */
+static size_t ota_chunk_expected = 0;
+static size_t ota_chunk_received = 0;
+static struct tcp_pcb *ota_chunk_pcb = NULL;
+
 static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
     (void)arg;
 
     if (p == NULL || err != ERR_OK) {
         if (p != NULL) pbuf_free(p);
         tcp_close(tpcb);
+        /* Reset OTA chunk state if this connection was buffering */
+        if (tpcb == ota_chunk_pcb) {
+            ota_chunk_expected = 0;
+            ota_chunk_received = 0;
+            ota_chunk_pcb = NULL;
+        }
         return ERR_OK;
     }
 
     tcp_recved(tpcb, p->tot_len);
 
-    /* Copy request to buffer for parsing */
+    /* Check if we're continuing to receive OTA chunk data */
+    if (tpcb == ota_chunk_pcb && ota_chunk_expected > 0) {
+        /* Append to buffer */
+        size_t to_copy = p->tot_len;
+        if (ota_chunk_received + to_copy > sizeof(ota_chunk_buf)) {
+            to_copy = sizeof(ota_chunk_buf) - ota_chunk_received;
+        }
+        pbuf_copy_partial(p, ota_chunk_buf + ota_chunk_received, to_copy, 0);
+        ota_chunk_received += to_copy;
+        pbuf_free(p);
+
+        /* Check if we have all the data */
+        if (ota_chunk_received >= ota_chunk_expected) {
+            printf("[WEB] OTA chunk complete: %zu bytes\n", ota_chunk_received);
+            ota_error_t ota_err = ota_write_chunk(ota_chunk_buf, ota_chunk_received);
+
+            static char response[256];
+            if (ota_err == OTA_OK) {
+                snprintf(response, sizeof(response), "%sOK", HTTP_OK_TEXT);
+            } else {
+                snprintf(response, sizeof(response), "%s%s", HTTP_400_RESPONSE, ota_error_str(ota_err));
+            }
+
+            size_t resp_len = strlen(response);
+            tcp_write(tpcb, response, resp_len, TCP_WRITE_FLAG_COPY);
+            tcp_output(tpcb);
+            tcp_close(tpcb);
+
+            ota_chunk_expected = 0;
+            ota_chunk_received = 0;
+            ota_chunk_pcb = NULL;
+        }
+        return ERR_OK;
+    }
+
+    /* Copy request to buffer for parsing - use pbuf_copy_partial to handle chained pbufs */
     static char request[2048];
     size_t copy_len = p->tot_len < sizeof(request) - 1 ? p->tot_len : sizeof(request) - 1;
-    memcpy(request, p->payload, copy_len);
+    pbuf_copy_partial(p, request, copy_len, 0);
     request[copy_len] = '\0';
 
     pbuf_free(p);
@@ -1187,20 +1234,45 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
         }
 
     } else if (is_post && strstr(request, "/api/ota/chunk") != NULL) {
-        /* OTA chunk - write binary data */
+        /* OTA chunk - write binary data (may arrive in multiple TCP packets) */
+        char content_len_str[16] = {0};
+        size_t content_len = 0;
+        if (parse_http_header(request, "Content-Length", content_len_str, sizeof(content_len_str))) {
+            content_len = (size_t)atoi(content_len_str);
+        }
+
         const char *body = strstr(request, "\r\n\r\n");
-        if (body) {
+        if (body && content_len > 0) {
             body += 4;
-            /* Calculate body length from total request */
-            size_t body_len = copy_len - (body - request);
-            ota_error_t err = ota_write_chunk((const uint8_t *)body, body_len);
-            if (err == OTA_OK) {
-                snprintf(response, sizeof(response), "%sOK", HTTP_OK_TEXT);
+            size_t header_len = body - request;
+            size_t body_in_first_packet = copy_len - header_len;
+
+            printf("[WEB] OTA chunk: content_len=%zu, got=%zu\n", content_len, body_in_first_packet);
+
+            if (body_in_first_packet >= content_len) {
+                /* All data arrived in first packet */
+                ota_error_t err = ota_write_chunk((const uint8_t *)body, content_len);
+                if (err == OTA_OK) {
+                    snprintf(response, sizeof(response), "%sOK", HTTP_OK_TEXT);
+                } else {
+                    snprintf(response, sizeof(response), "%s%s", HTTP_400_RESPONSE, ota_error_str(err));
+                }
             } else {
-                snprintf(response, sizeof(response), "%s%s", HTTP_400_RESPONSE, ota_error_str(err));
+                /* Need to buffer and wait for more data */
+                if (content_len > sizeof(ota_chunk_buf)) {
+                    snprintf(response, sizeof(response), "%sChunk too large", HTTP_400_RESPONSE);
+                } else {
+                    /* Copy what we have and wait for more */
+                    memcpy(ota_chunk_buf, body, body_in_first_packet);
+                    ota_chunk_received = body_in_first_packet;
+                    ota_chunk_expected = content_len;
+                    ota_chunk_pcb = tpcb;
+                    printf("[WEB] OTA chunk: buffering, need %zu more\n", content_len - body_in_first_packet);
+                    return ERR_OK;  /* Don't send response yet, wait for more data */
+                }
             }
         } else {
-            snprintf(response, sizeof(response), "%sNo body", HTTP_400_RESPONSE);
+            snprintf(response, sizeof(response), "%sNo body or Content-Length", HTTP_400_RESPONSE);
         }
 
     } else if (is_post && strstr(request, "/api/ota/finish") != NULL) {

@@ -28,13 +28,15 @@ else()
     message(WARNING "OTA: IMPORTANT - Keep ota_key.txt secret! It's required to create valid firmware updates.")
 endif()
 
-# Configure FOTA bootloader with encryption
+# Configure FOTA bootloader with encryption and compression
 # Note: Encryption requires pycryptodome: sudo apt install python3-pycryptodome
 set(PFB_AES_KEY "${OTA_AES_KEY}" CACHE STRING "FOTA AES encryption key")
 set(PFB_WITH_IMAGE_ENCRYPTION ON CACHE BOOL "Enable AES encryption for OTA" FORCE)
+set(PFB_WITH_GZIP_COMPRESSION ON CACHE BOOL "Enable gzip compression for OTA" FORCE)
 
-# Reserve 4KB at end of flash for persistent config storage
-set(PFB_RESERVED_FILESYSTEM_SIZE_KB 4 CACHE STRING "Reserved flash for config")
+# Reserve 8KB at end of flash for persistent config storage
+# (Must be multiple of 8KB for flash partition alignment)
+set(PFB_RESERVED_FILESYSTEM_SIZE_KB 8 CACHE STRING "Reserved flash for config")
 
 # Add FOTA bootloader
 add_subdirectory(deps/pico_fota_bootloader)
@@ -72,8 +74,12 @@ target_include_directories(chronos_rb PRIVATE
 )
 
 # Flash safety: we only use core 0, so core 1 is always safe
+# Also pass FOTA options to main app for ota_update.c
 target_compile_definitions(chronos_rb PRIVATE
     PICO_FLASH_ASSUME_CORE1_SAFE=1
+    PFB_WITH_GZIP_COMPRESSION
+    PFB_WITH_IMAGE_ENCRYPTION
+    PFB_AES_KEY="${OTA_AES_KEY}"
 )
 
 # Enable PIO for precise timing
@@ -88,6 +94,7 @@ target_link_libraries(chronos_rb
     pico_flash
     pico_multicore
     pico_fota_bootloader_lib
+    pico_mbedtls
     pico_unique_id
     hardware_pio
     hardware_dma
@@ -149,7 +156,7 @@ add_custom_target(flash-initial
 
 # OTA update target
 # Usage: make fota [FOTA_HOST=192.168.x.x]
-set(FOTA_HOST "172.16.13.40" CACHE STRING "Target device IP for OTA updates")
+set(FOTA_HOST "192.168.111.113" CACHE STRING "Target device IP for OTA updates")
 add_custom_target(fota
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/ota.sh ${CMAKE_BINARY_DIR}/chronos_rb_fota_image_encrypted.bin ${FOTA_HOST}
     DEPENDS chronos_rb

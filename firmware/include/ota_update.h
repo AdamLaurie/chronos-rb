@@ -41,7 +41,8 @@ typedef enum {
     OTA_ERROR_WRITE_FAILED,
     OTA_ERROR_VERIFY_FAILED,
     OTA_ERROR_INVALID_STATE,
-    OTA_ERROR_FLASH_INIT
+    OTA_ERROR_FLASH_INIT,
+    OTA_ERROR_DECOMPRESS
 } ota_error_t;
 
 typedef enum {
