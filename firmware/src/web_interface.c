@@ -351,10 +351,11 @@ static const char AC_GRAPH_PAGE[] =
 ".axis{stroke:#444;stroke-width:1}"
 ".grid{stroke:#333;stroke-width:0.5}"
 ".line{fill:none;stroke:#e94560;stroke-width:2}"
-".label{fill:#888;font-size:11px}"
+".label{fill:#888;font-size:10px}"
 ".value{fill:#e94560;font-size:12px}"
 ".nominal{stroke:#4a4;stroke-width:1;stroke-dasharray:5,5}"
 ".info{display:flex;justify-content:space-between;margin-top:10px;font-size:0.9em;color:#aaa}"
+".time-range{text-align:center;font-size:0.85em;color:#666;margin-top:5px}"
 "</style>"
 "</head><body>"
 "<div class='container'>"
@@ -369,19 +370,25 @@ static const char AC_GRAPH_PAGE[] =
 "<h2>Last 60 Minutes</h2>"
 "<div class='graph' id='min-graph'><svg></svg></div>"
 "<div class='info'><span id='min-info'>Loading...</span><span id='min-range'></span></div>"
+"<div class='time-range' id='min-time'></div>"
 "</div>"
 "<div class='card'>"
 "<h2>Last 48 Hours</h2>"
 "<div class='graph' id='hour-graph'><svg></svg></div>"
 "<div class='info'><span id='hour-info'>Loading...</span><span id='hour-range'></span></div>"
+"<div class='time-range' id='hour-time'></div>"
 "</div>"
 "</div>"
 "<script>"
-"function drawGraph(id,data,label){"
-"if(!data||data.length===0){document.querySelector('#'+id+' svg').innerHTML='<text x=\"50%%\" y=\"50%%\" text-anchor=\"middle\" fill=\"#666\">No data yet</text>';return;}"
+"function fmtTime(d){return d.toTimeString().slice(0,5);}"
+"function fmtDateShort(d){return d.toISOString().slice(5,10);}"
+"function fmtDate(d){return d.toISOString().slice(0,10)+' '+d.toTimeString().slice(0,5);}"
+"function drawGraph(id,data,nowMs,intervalMs){"
+"if(!data||data.length===0){document.querySelector('#'+id+' svg').innerHTML='<text x=\"50%%\" y=\"50%%\" text-anchor=\"middle\" fill=\"#666\">No data yet</text>';return null;}"
 "var svg=document.querySelector('#'+id+' svg');"
 "var w=svg.clientWidth||850,h=svg.clientHeight||200;"
-"var pad={t:20,r:20,b:30,l:50};"
+"var isHour=intervalMs>=3600000;"
+"var pad={t:20,r:20,b:isHour?45:35,l:50};"
 "var gw=w-pad.l-pad.r,gh=h-pad.t-pad.b;"
 "var min=Math.min(...data),max=Math.max(...data);"
 "var range=max-min;if(range<0.1)range=0.1;"
@@ -393,20 +400,29 @@ static const char AC_GRAPH_PAGE[] =
 "for(var i=0;i<=4;i++){var y=gh*i/4;var v=(max-(max-min)*i/4).toFixed(2);"
 "html+='<line class=\"grid\" x1=\"0\" y1=\"'+y+'\" x2=\"'+gw+'\" y2=\"'+y+'\"/>';"
 "html+='<text class=\"label\" x=\"-5\" y=\"'+(y+4)+'\" text-anchor=\"end\">'+v+'</text>';}"
+"var startMs=nowMs-(data.length-1)*intervalMs;"
+"var ticks=isHour?6:5;var lastDate='';"
+"for(var i=0;i<=ticks;i++){var x=gw*i/ticks;var tMs=startMs+(data.length-1)*intervalMs*i/ticks;"
+"var dt=new Date(tMs);html+='<text class=\"label\" x=\"'+x+'\" y=\"'+(gh+12)+'\" text-anchor=\"middle\">'+fmtTime(dt)+'</text>';"
+"if(isHour){var ds=fmtDateShort(dt);if(ds!==lastDate){html+='<text class=\"label\" x=\"'+x+'\" y=\"'+(gh+24)+'\" text-anchor=\"middle\">'+ds+'</text>';lastDate=ds;}}}"
 "var ny=gh-(nom-min)/(max-min)*gh;"
 "if(ny>0&&ny<gh)html+='<line class=\"nominal\" x1=\"0\" y1=\"'+ny+'\" x2=\"'+gw+'\" y2=\"'+ny+'\"/>';"
 "var pts='';for(var i=0;i<data.length;i++){var x=gw*i/(data.length-1||1);var y=gh-(data[i]-min)/(max-min)*gh;pts+=(i?'L':'M')+x+','+y;}"
 "html+='<path class=\"line\" d=\"'+pts+'\"/>';"
 "html+='</g>';svg.innerHTML=html;"
-"return{min:Math.min(...data).toFixed(3),max:Math.max(...data).toFixed(3),avg:(data.reduce((a,b)=>a+b,0)/data.length).toFixed(3)};}"
+"var startDt=new Date(startMs),endDt=new Date(nowMs);"
+"return{min:Math.min(...data).toFixed(3),max:Math.max(...data).toFixed(3),avg:(data.reduce((a,b)=>a+b,0)/data.length).toFixed(3),start:startDt,end:endDt};}"
 "function update(){"
 "fetch('/api/ac_history').then(r=>r.json()).then(d=>{"
-"var m=drawGraph('min-graph',d.minutes,'min');"
-"if(m)document.getElementById('min-info').textContent=d.min_count+' samples, avg: '+m.avg+' Hz';"
-"if(m)document.getElementById('min-range').textContent='Range: '+m.min+' - '+m.max+' Hz';"
-"var h=drawGraph('hour-graph',d.hours,'hour');"
-"if(h)document.getElementById('hour-info').textContent=d.hour_count+' samples, avg: '+h.avg+' Hz';"
-"if(h)document.getElementById('hour-range').textContent='Range: '+h.min+' - '+h.max+' Hz';"
+"var nowMs=d.time_unix*1000;"
+"var m=drawGraph('min-graph',d.minutes,nowMs,60000);"
+"if(m){document.getElementById('min-info').textContent=d.min_count+' samples, avg: '+m.avg+' Hz';"
+"document.getElementById('min-range').textContent='Range: '+m.min+' - '+m.max+' Hz';"
+"document.getElementById('min-time').textContent=fmtDate(m.start)+' → '+fmtDate(m.end);}"
+"var h=drawGraph('hour-graph',d.hours,nowMs,3600000);"
+"if(h){document.getElementById('hour-info').textContent=d.hour_count+' samples, avg: '+h.avg+' Hz';"
+"document.getElementById('hour-range').textContent='Range: '+h.min+' - '+h.max+' Hz';"
+"document.getElementById('hour-time').textContent=fmtDate(h.start)+' → '+fmtDate(h.end);}"
 "}).catch(e=>{console.error(e);});}"
 "update();setInterval(update,60000);"
 "</script>"
@@ -1338,12 +1354,16 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
         int min_count = ac_freq_get_minute_history(min_buf, AC_FREQ_MINUTE_HISTORY);
         int hour_count = ac_freq_get_hour_history(hour_buf, AC_FREQ_HOUR_HISTORY);
 
+        /* Get current Unix time */
+        timestamp_t ts = get_current_time();
+        uint32_t unix_time = (ts.seconds >= NTP_UNIX_OFFSET) ? ts.seconds - NTP_UNIX_OFFSET : 0;
+
         /* Build JSON response */
         char *p = response;
         int rem = sizeof(response);
         int n;
 
-        n = snprintf(p, rem, "%s{\"minutes\":[", HTTP_JSON_HEADER);
+        n = snprintf(p, rem, "%s{\"time_unix\":%lu,\"minutes\":[", HTTP_JSON_HEADER, (unsigned long)unix_time);
         p += n; rem -= n;
 
         for (int i = 0; i < min_count && rem > 20; i++) {
