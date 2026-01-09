@@ -33,8 +33,10 @@
 #define AC_FREQ_MAX_HZ              65.0f   /* Maximum valid frequency */
 #define AC_FREQ_TIMEOUT_MS          100     /* Timeout for signal loss */
 
-/* History buffer for averaging */
-#define AC_FREQ_HISTORY_SIZE        300     /* Number of samples for averaging (~5 sec) */
+/* History buffer sizes */
+#define AC_FREQ_HISTORY_SIZE        60      /* Short-term samples for instant average */
+#define AC_FREQ_MINUTE_HISTORY      60      /* Last 60 minutes at minute resolution */
+#define AC_FREQ_HOUR_HISTORY        48      /* Last 48 hours at hour resolution */
 
 /*============================================================================
  * DATA STRUCTURES
@@ -108,5 +110,26 @@ const ac_freq_state_t* ac_freq_get_state(void);
  * Print AC frequency status to console
  */
 void ac_freq_print_status(void);
+
+/**
+ * Get minute history buffer
+ * @param buf Output buffer for minute averages (oldest first)
+ * @param max_samples Maximum samples to return
+ * @return Number of valid samples copied
+ */
+int ac_freq_get_minute_history(float *buf, int max_samples);
+
+/**
+ * Get hour history buffer
+ * @param buf Output buffer for hour averages (oldest first)
+ * @param max_samples Maximum samples to return
+ * @return Number of valid samples copied
+ */
+int ac_freq_get_hour_history(float *buf, int max_samples);
+
+/**
+ * Get current accumulator status for diagnostics
+ */
+void ac_freq_get_accum_status(uint32_t *sec_count, uint32_t *min_count);
 
 #endif /* AC_FREQ_MONITOR_H */

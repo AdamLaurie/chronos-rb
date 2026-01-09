@@ -112,7 +112,7 @@ static const char HTML_PAGE[] =
 "<div class='container'>"
 "<h1 class='%s'>&#9883; CHRONOS-Rb</h1>"
 "<div id='time' class='time-display %s'>%s</div>"
-"<div class='nav'><a href='/'>Status</a> <a href='/config'>Config</a> <a href='/ota'>OTA</a></div>"
+"<div class='nav'><a href='/'>Status</a> <a href='/acfreq'>AC Freq</a> <a href='/config'>Config</a> <a href='/ota'>OTA</a></div>"
 "<div class='grid'>"
 "<div class='card'>"
 "<h2>System Status</h2>"
@@ -328,6 +328,90 @@ static const char CONFIG_PAGE[] =
 "</script>"
 "</body></html>";
 
+/* AC Frequency Graph Page */
+static const char AC_GRAPH_PAGE[] =
+"<!DOCTYPE html>"
+"<html><head>"
+"<title>⚛ AC Frequency - CHRONOS-Rb</title>"
+"<link rel='icon' href=\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚛</text></svg>\">"
+"<meta name='viewport' content='width=device-width,initial-scale=1'>"
+"<style>"
+"*{box-sizing:border-box;margin:0;padding:0}"
+"body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
+"background:linear-gradient(135deg,#1a1a2e 0%%,#16213e 100%%);color:#eee;min-height:100vh;padding:20px}"
+".container{max-width:900px;margin:0 auto}"
+"h1{text-align:center;margin-bottom:20px;font-size:1.6em}"
+".card{background:rgba(255,255,255,0.05);border-radius:15px;padding:20px;margin-bottom:20px;"
+"backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1)}"
+".card h2{color:#e94560;margin-bottom:10px;font-size:1.1em}"
+".nav{text-align:center;margin-bottom:20px}"
+".nav a{color:#e94560;text-decoration:none;margin:0 15px}"
+".graph{width:100%%;height:200px;background:#0a0a12;border-radius:8px;position:relative}"
+".graph svg{width:100%%;height:100%%}"
+".axis{stroke:#444;stroke-width:1}"
+".grid{stroke:#333;stroke-width:0.5}"
+".line{fill:none;stroke:#e94560;stroke-width:2}"
+".label{fill:#888;font-size:11px}"
+".value{fill:#e94560;font-size:12px}"
+".nominal{stroke:#4a4;stroke-width:1;stroke-dasharray:5,5}"
+".info{display:flex;justify-content:space-between;margin-top:10px;font-size:0.9em;color:#aaa}"
+"</style>"
+"</head><body>"
+"<div class='container'>"
+"<h1>⚛ AC Mains Frequency</h1>"
+"<div class='nav'>"
+"<a href='/'>Status</a>"
+"<a href='/acfreq'>AC Freq</a>"
+"<a href='/config'>Config</a>"
+"<a href='/ota'>OTA</a>"
+"</div>"
+"<div class='card'>"
+"<h2>Last 60 Minutes</h2>"
+"<div class='graph' id='min-graph'><svg></svg></div>"
+"<div class='info'><span id='min-info'>Loading...</span><span id='min-range'></span></div>"
+"</div>"
+"<div class='card'>"
+"<h2>Last 48 Hours</h2>"
+"<div class='graph' id='hour-graph'><svg></svg></div>"
+"<div class='info'><span id='hour-info'>Loading...</span><span id='hour-range'></span></div>"
+"</div>"
+"</div>"
+"<script>"
+"function drawGraph(id,data,label){"
+"if(!data||data.length===0){document.querySelector('#'+id+' svg').innerHTML='<text x=\"50%%\" y=\"50%%\" text-anchor=\"middle\" fill=\"#666\">No data yet</text>';return;}"
+"var svg=document.querySelector('#'+id+' svg');"
+"var w=svg.clientWidth||850,h=svg.clientHeight||200;"
+"var pad={t:20,r:20,b:30,l:50};"
+"var gw=w-pad.l-pad.r,gh=h-pad.t-pad.b;"
+"var min=Math.min(...data),max=Math.max(...data);"
+"var range=max-min;if(range<0.1)range=0.1;"
+"min-=range*0.1;max+=range*0.1;"
+"var nom=data[0]>55?60:50;"
+"var html='<g transform=\"translate('+pad.l+','+pad.t+')\">';"
+"html+='<line class=\"axis\" x1=\"0\" y1=\"'+gh+'\" x2=\"'+gw+'\" y2=\"'+gh+'\"/>';"
+"html+='<line class=\"axis\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"'+gh+'\"/>';"
+"for(var i=0;i<=4;i++){var y=gh*i/4;var v=(max-(max-min)*i/4).toFixed(2);"
+"html+='<line class=\"grid\" x1=\"0\" y1=\"'+y+'\" x2=\"'+gw+'\" y2=\"'+y+'\"/>';"
+"html+='<text class=\"label\" x=\"-5\" y=\"'+(y+4)+'\" text-anchor=\"end\">'+v+'</text>';}"
+"var ny=gh-(nom-min)/(max-min)*gh;"
+"if(ny>0&&ny<gh)html+='<line class=\"nominal\" x1=\"0\" y1=\"'+ny+'\" x2=\"'+gw+'\" y2=\"'+ny+'\"/>';"
+"var pts='';for(var i=0;i<data.length;i++){var x=gw*i/(data.length-1||1);var y=gh-(data[i]-min)/(max-min)*gh;pts+=(i?'L':'M')+x+','+y;}"
+"html+='<path class=\"line\" d=\"'+pts+'\"/>';"
+"html+='</g>';svg.innerHTML=html;"
+"return{min:Math.min(...data).toFixed(3),max:Math.max(...data).toFixed(3),avg:(data.reduce((a,b)=>a+b,0)/data.length).toFixed(3)};}"
+"function update(){"
+"fetch('/api/ac_history').then(r=>r.json()).then(d=>{"
+"var m=drawGraph('min-graph',d.minutes,'min');"
+"if(m)document.getElementById('min-info').textContent=d.min_count+' samples, avg: '+m.avg+' Hz';"
+"if(m)document.getElementById('min-range').textContent='Range: '+m.min+' - '+m.max+' Hz';"
+"var h=drawGraph('hour-graph',d.hours,'hour');"
+"if(h)document.getElementById('hour-info').textContent=d.hour_count+' samples, avg: '+h.avg+' Hz';"
+"if(h)document.getElementById('hour-range').textContent='Range: '+h.min+' - '+h.max+' Hz';"
+"}).catch(e=>{console.error(e);});}"
+"update();setInterval(update,60000);"
+"</script>"
+"</body></html>";
+
 static const char OTA_PAGE[] =
 "<!DOCTYPE html>"
 "<html><head>"
@@ -369,7 +453,7 @@ static const char OTA_PAGE[] =
 "</head><body>"
 "<div class='container'>"
 "<h1>Firmware Update</h1>"
-"<div class='nav'><a href='/'>Status</a><a href='/config'>Config</a><a href='/ota'>OTA</a></div>"
+"<div class='nav'><a href='/'>Status</a><a href='/acfreq'>AC Freq</a><a href='/config'>Config</a><a href='/ota'>OTA</a></div>"
 "%s"
 "<div class='card'>"
 "<h2>Current Firmware</h2>"
@@ -1246,6 +1330,37 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
             "%s{\"pos\":%lu,\"data\":\"%s\"}",
             HTTP_JSON_HEADER, (unsigned long)client_pos, escaped);
 
+    } else if (strstr(request, "/api/ac_history") != NULL) {
+        /* GET /api/ac_history - get AC frequency history for graphing */
+        static float min_buf[AC_FREQ_MINUTE_HISTORY];
+        static float hour_buf[AC_FREQ_HOUR_HISTORY];
+
+        int min_count = ac_freq_get_minute_history(min_buf, AC_FREQ_MINUTE_HISTORY);
+        int hour_count = ac_freq_get_hour_history(hour_buf, AC_FREQ_HOUR_HISTORY);
+
+        /* Build JSON response */
+        char *p = response;
+        int rem = sizeof(response);
+        int n;
+
+        n = snprintf(p, rem, "%s{\"minutes\":[", HTTP_JSON_HEADER);
+        p += n; rem -= n;
+
+        for (int i = 0; i < min_count && rem > 20; i++) {
+            n = snprintf(p, rem, "%s%.3f", i > 0 ? "," : "", min_buf[i]);
+            p += n; rem -= n;
+        }
+
+        n = snprintf(p, rem, "],\"hours\":[");
+        p += n; rem -= n;
+
+        for (int i = 0; i < hour_count && rem > 20; i++) {
+            n = snprintf(p, rem, "%s%.3f", i > 0 ? "," : "", hour_buf[i]);
+            p += n; rem -= n;
+        }
+
+        n = snprintf(p, rem, "],\"min_count\":%d,\"hour_count\":%d}", min_count, hour_count);
+
     } else if (is_post && strstr(request, "/config") != NULL) {
         /* POST /config - save configuration */
         const char *body = strstr(request, "\r\n\r\n");
@@ -1285,6 +1400,10 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
         /* Status page */
         generate_status_page(html_buf, sizeof(html_buf));
         snprintf(response, sizeof(response), "%s%s", HTTP_RESPONSE_HEADER, html_buf);
+
+    } else if (strstr(request, "GET /acfreq") != NULL) {
+        /* AC frequency graph page */
+        snprintf(response, sizeof(response), "%s%s", HTTP_RESPONSE_HEADER, AC_GRAPH_PAGE);
 
     } else if (strstr(request, "GET /ota") != NULL) {
         /* OTA update page */
