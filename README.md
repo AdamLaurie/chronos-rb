@@ -20,6 +20,7 @@ A Stratum-1 NTP/PTP time server for Raspberry Pi Pico 2-W, disciplined by an FE-
 - **PIO Precision** - Hardware-timed capture for <1µs accuracy
 - **Automatic Holdover** - Maintains accuracy during reference loss
 - **Interval Pulse Outputs** - 0.5s, 1s, 6s, 30s, 60s timing signals
+- **AC Mains Frequency Monitor** - Grid frequency tracking with 48-hour history
 
 ## 📊 Specifications
 
@@ -165,6 +166,7 @@ See the Hardware Guide document for complete schematics. Key connections:
 | GP16 | 6s Pulse | Interval output |
 | GP17 | 30s Pulse | Interval output |
 | GP18 | 60s Pulse | Interval output |
+| GP19 | AC Zero Cross | Zero crossing detector (optional) |
 
 ### 5. Power Up
 
@@ -441,6 +443,55 @@ Operation:
 - R10: 330Ω (yellow LED current limit)
 - 1× Green LED (indicates locked)
 - 1× Yellow LED (indicates unlocked/warmup)
+
+### AC Mains Frequency Monitor (Optional)
+
+CHRONOS-Rb can monitor local AC grid frequency using off-the-shelf components. Grid frequency is tightly regulated and varies with load, providing an interesting indicator of grid stability.
+
+#### Components
+
+1. **AC Transformer**: [Carel TRA12UN100](https://cpc.farnell.com/carel/tra12un100/transformer-240vac-12vac/dp/MC01881)
+   - 240VAC to 12VAC isolation transformer
+   - 3VA rating (300mA max)
+   - **Important**: Safe for very low load designs - output voltage stays at 13.8V (no load) to 10V (full load), unlike doorbell transformers that can spike to dangerous voltages under light load
+
+2. **Zero Crossing Detector**: [Lectrobox AC Zero Crossing Detector](https://www.lectrobox.com/projects/zero-crossing-detector/)
+   - 12VAC input via 5.5mm barrel jack
+   - 3.3V output (0V/3.3V square wave indicating AC polarity)
+   - SMA output connector
+   - Built-in 100Hz RC filter for glitch resistance
+   - Originally designed for grid frequency/phase measurement
+
+#### Wiring
+
+```
+AC Mains ──► Transformer ──► Zero Crossing ──► Pico
+  240V        TRA12UN100      Detector         GP19
+               12VAC        (5.5mm jack)     (via SMA)
+```
+
+| Connection | Signal |
+|------------|--------|
+| Transformer primary | 240VAC mains (with appropriate fusing/isolation) |
+| Transformer secondary | 12VAC to zero crossing detector barrel jack |
+| Zero crossing SMA | 3.3V square wave to GP19 |
+
+#### Features
+
+- **Real-time frequency display**: Current grid frequency with 3 decimal precision
+- **Hierarchical averaging**: Second → minute → hour averaging for noise reduction
+- **48-hour history**: Stores 60 minute samples + 48 hour samples (~432 bytes)
+- **Graph page**: Visual display at `/acfreq` showing minute and hour trends
+- **API endpoint**: `/api/ac_history` returns JSON with `minutes[]` and `hours[]` arrays
+
+#### Safety Notes
+
+⚠️ **CAUTION**: AC mains voltage is dangerous. The transformer provides galvanic isolation between mains and low-voltage circuits.
+
+- Use appropriate fusing on the primary side
+- Ensure transformer is rated for your local mains voltage (230/240V or 110/120V)
+- The TRA12UN100 is specifically designed for low-power monitoring applications
+- Never connect the Pico directly to mains voltage
 
 ## ⏱️ Interval Pulse Outputs
 
