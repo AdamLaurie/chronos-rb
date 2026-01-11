@@ -87,6 +87,8 @@ target_compile_definitions(chronos_rb PRIVATE
 pico_generate_pio_header(chronos_rb ${CMAKE_CURRENT_LIST_DIR}/src/pps_capture.pio)
 pico_generate_pio_header(chronos_rb ${CMAKE_CURRENT_LIST_DIR}/src/pps_generator.pio)
 pico_generate_pio_header(chronos_rb ${CMAKE_CURRENT_LIST_DIR}/src/freq_counter.pio)
+pico_generate_pio_header(chronos_rb ${CMAKE_CURRENT_LIST_DIR}/src/pulse_pio.pio)
+pico_generate_pio_header(chronos_rb ${CMAKE_CURRENT_LIST_DIR}/src/pulse_interval_pio.pio)
 
 target_link_libraries(chronos_rb
     pico_stdlib

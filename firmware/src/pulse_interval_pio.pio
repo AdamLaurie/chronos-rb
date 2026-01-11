@@ -1,0 +1,106 @@
+;
+; CHRONOS-Rb Sub-second Interval Pulse Generator
+;
+; Generates precisely-timed pulses at sub-second intervals by counting
+; 10MHz reference edges from PPS. Used for intervals like 0.5s, 0.1s, etc.
+;
+; Pin mapping:
+;   - IN pin 0: 10MHz reference input (directly watched)
+;   - SIDE-SET pin 0: Pulse output GPIO
+;   - JMP pin: PPS input (for sync)
+;
+; Protocol:
+;   1. CPU pushes count (10MHz edges to wait, 0 = sync to PPS)
+;   2. CPU pushes pulse width (system clock cycles)
+;   3. If count == 0: wait for PPS rising edge, then pulse
+;   4. If count > 0: count 10MHz edges, then pulse
+;   5. Repeat
+;
+
+.program pulse_interval_pio
+.side_set 1 opt
+
+.wrap_target
+    pull block          side 0  ; Get count (10MHz edges, or 0 for PPS sync)
+    mov x, osr                  ; Store count in X
+    pull block                  ; Get pulse width
+    mov y, osr                  ; Store width in Y
+
+    ; Check if count is 0 (PPS sync mode)
+    jmp !x pps_sync             ; If X == 0, wait for PPS
+
+    ; Count mode: count 10MHz edges
+count_loop:
+    wait 1 pin 0                ; Wait for 10MHz HIGH
+    wait 0 pin 0                ; Wait for 10MHz LOW (edge complete)
+    jmp x-- count_loop          ; Decrement, loop if not zero
+    jmp do_pulse
+
+pps_sync:
+    ; Wait for PPS rising edge using JMP pin
+    ; First wait for PPS to go low
+wait_pps_low:
+    jmp pin wait_pps_low        ; Loop while JMP pin is HIGH
+    ; Now wait for PPS to go high (rising edge)
+wait_pps_high:
+    jmp pin do_pulse            ; Exit when JMP pin goes HIGH
+    jmp wait_pps_high           ; Keep waiting
+
+do_pulse:
+    ; Generate pulse - Y contains width in clock cycles
+    set pindirs, 1              ; Ensure output enabled
+    mov x, y            side 1  ; Copy width to X, set output HIGH
+pulse_delay:
+    jmp x-- pulse_delay         ; Delay for X cycles
+    nop                 side 0  ; Set output LOW
+.wrap
+
+% c-sdk {
+#include "hardware/gpio.h"
+
+static inline void pulse_interval_pio_program_init(PIO pio, uint sm, uint offset,
+                                                    uint mhz_pin, uint pps_pin,
+                                                    uint out_pin) {
+    pio_sm_config c = pulse_interval_pio_program_get_default_config(offset);
+
+    // Configure input pin (10MHz reference) for WAIT instruction
+    sm_config_set_in_pins(&c, mhz_pin);
+    pio_gpio_init(pio, mhz_pin);
+    pio_sm_set_consecutive_pindirs(pio, sm, mhz_pin, 1, false);
+
+    // Configure JMP pin (PPS for sync)
+    sm_config_set_jmp_pin(&c, pps_pin);
+    pio_gpio_init(pio, pps_pin);
+
+    // Configure side-set output pin
+    sm_config_set_sideset_pins(&c, out_pin);
+    pio_gpio_init(pio, out_pin);
+    pio_sm_set_consecutive_pindirs(pio, sm, out_pin, 1, true);
+    gpio_set_drive_strength(out_pin, GPIO_DRIVE_STRENGTH_4MA);
+
+    // Run at system clock (150MHz)
+    sm_config_set_clkdiv(&c, 1.0f);
+
+    // Initialize state machine
+    pio_sm_init(pio, sm, offset, &c);
+}
+
+// Queue a pulse at specific 10MHz count offset from PPS
+// count: number of 10MHz edges to wait (0 = fire on PPS)
+// width_us: pulse width in microseconds
+static inline void pulse_interval_pio_queue(PIO pio, uint sm,
+                                             uint32_t count, uint32_t width_us) {
+    // Push count (0 for PPS sync, or 10MHz edges to wait)
+    pio_sm_put(pio, sm, count > 0 ? count - 1 : 0);
+
+    // Push pulse width in clock cycles (150MHz)
+    uint32_t cycles = width_us * 150;
+    if (cycles > 2) cycles -= 2;
+    pio_sm_put(pio, sm, cycles);
+}
+
+// Check if PIO is ready for new command
+static inline bool pulse_interval_pio_ready(PIO pio, uint sm) {
+    return pio_sm_get_tx_fifo_level(pio, sm) <= 2;  // Room for count + width
+}
+%}

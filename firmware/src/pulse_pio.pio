@@ -1,0 +1,72 @@
+;
+; CHRONOS-Rb Precision Pulse Generator
+;
+; Generates precisely-timed pulses synchronized to PPS rising edge.
+; CPU loads pulse width (in system clock cycles) to FIFO before PPS arrives.
+; PIO waits for FIFO data, then waits for PPS, then generates pulse.
+;
+; Pin mapping:
+;   - IN pin 0: PPS input (same as pps_capture)
+;   - SET pin 0: Pulse output GPIO
+;
+; To fire on next PPS: push pulse_width_cycles to FIFO
+; To skip a PPS: don't push anything (PIO blocks on pull)
+;
+
+.program pulse_pio
+
+.wrap_target
+    pull block              ; Wait for pulse width from CPU (blocking)
+    mov x, osr              ; Store pulse width in X
+
+    ; Wait for PPS rising edge
+    wait 0 pin 0            ; Ensure PPS is low first
+    wait 1 pin 0            ; Wait for rising edge
+
+    ; Generate pulse - X contains width in clock cycles
+    set pins, 1             ; Output HIGH
+pulse_loop:
+    jmp x-- pulse_loop      ; Delay for X cycles
+    set pins, 0             ; Output LOW
+.wrap
+
+% c-sdk {
+#include "hardware/gpio.h"
+
+static inline void pulse_pio_program_init(PIO pio, uint sm, uint offset,
+                                          uint pps_pin, uint out_pin) {
+    pio_sm_config c = pulse_pio_program_get_default_config(offset);
+
+    // Configure input pin (PPS)
+    sm_config_set_in_pins(&c, pps_pin);
+    pio_gpio_init(pio, pps_pin);
+    pio_sm_set_consecutive_pindirs(pio, sm, pps_pin, 1, false);
+
+    // Configure output pin
+    sm_config_set_set_pins(&c, out_pin, 1);
+    pio_gpio_init(pio, out_pin);
+    pio_sm_set_consecutive_pindirs(pio, sm, out_pin, 1, true);
+    gpio_set_drive_strength(out_pin, GPIO_DRIVE_STRENGTH_4MA);
+
+    // Run at system clock (150MHz) for ~6.67ns resolution
+    sm_config_set_clkdiv(&c, 1.0f);
+
+    // Initialize state machine
+    pio_sm_init(pio, sm, offset, &c);
+}
+
+// Queue a pulse to fire on next PPS edge
+// width_us: pulse width in microseconds
+static inline void pulse_pio_queue(PIO pio, uint sm, uint32_t width_us) {
+    // Convert microseconds to clock cycles (150MHz = 150 cycles/us)
+    // Subtract loop overhead (~2 cycles per iteration)
+    uint32_t cycles = width_us * 150;
+    if (cycles > 2) cycles -= 2;
+    pio_sm_put(pio, sm, cycles);
+}
+
+// Check if PIO is ready for new pulse (FIFO not full)
+static inline bool pulse_pio_ready(PIO pio, uint sm) {
+    return !pio_sm_is_tx_fifo_full(pio, sm);
+}
+%}

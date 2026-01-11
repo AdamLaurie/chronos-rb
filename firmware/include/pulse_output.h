@@ -67,6 +67,7 @@ typedef struct {
     uint32_t next_pulse_time;   /* Time to start next pulse in burst (0 = none) */
     uint16_t burst_remaining;   /* Pulses remaining in current burst */
     bool triggered_this_period; /* Already triggered in current period */
+    int8_t pio_index;           /* PIO allocation index (-1 = CPU fallback) */
 } pulse_config_t;
 
 /*============================================================================
