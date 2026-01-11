@@ -60,24 +60,29 @@ static uint32_t epoch_offset = 0;        /* Offset from Unix epoch */
 
 /**
  * Initialize rubidium synchronization
+ *
+ * Architecture: GNSS is primary time reference, Rb provides frequency stability
+ * - GNSS PPS: Primary time source (absolute accuracy)
+ * - Rb 10MHz: Frequency reference (stability)
+ * - Rb PPS: Backup/holdover when GNSS lost
  */
 void rubidium_sync_init(void) {
-    printf("[RB] Initializing rubidium synchronization\n");
-    
+    printf("[RB] Initializing time synchronization\n");
+    printf("[RB] Primary: GNSS PPS | Frequency: Rb 10MHz | Backup: Rb PPS\n");
+
     current_state = SYNC_STATE_INIT;
     state_enter_time = time_us_64();
     state_pps_count = 0;
-    
+
     /* Initialize time to a default (will be set via NTP or manual) */
     current_seconds = 0;
     subsecond_us = 0;
-    
+
     g_time_state.sync_state = current_state;
     g_time_state.time_valid = false;
     g_time_state.rb_locked = false;
-    
-    printf("[RB] Waiting for rubidium oscillator to lock...\n");
-    printf("[RB] (FE-5680A typically needs 3-5 minutes warmup)\n");
+
+    printf("[RB] Waiting for GNSS lock (primary) or Rb lock (backup)...\n");
 }
 
 /**
@@ -223,19 +228,18 @@ void rubidium_sync_task(void) {
     
     switch (current_state) {
         case SYNC_STATE_INIT:
-            /* Wait for rubidium to lock */
-            if (rb_locked) {
-                printf("[RB] Rubidium locked after %lu seconds warmup\n", rb_warmup_time);
+            /* Wait for GNSS lock (primary) or Rb lock (backup) */
+            if (gnss_has_time() && gnss_pps_valid()) {
+                printf("[RB] GNSS locked - primary time source acquired\n");
+                change_state(SYNC_STATE_FREQ_CAL);
+            } else if (rb_locked) {
+                printf("[RB] Rb locked after %lu seconds (GNSS not available)\n", rb_warmup_time);
+                printf("[RB] Using Rb as time source until GNSS acquired\n");
                 change_state(SYNC_STATE_FREQ_CAL);
             } else if (state_time > 600) {  /* 10 minute timeout */
-                printf("[RB] ERROR: Rubidium failed to lock within 10 minutes\n");
-                /* Check if GNSS is available as fallback */
-                if (gnss_has_time() && gnss_pps_valid()) {
-                    printf("[RB] GNSS available as fallback time source\n");
-                }
+                printf("[RB] ERROR: Neither GNSS nor Rb locked within 10 minutes\n");
                 change_state(SYNC_STATE_ERROR);
             }
-            /* GPS time setting handled above state machine */
             break;
             
         case SYNC_STATE_FREQ_CAL:
@@ -263,34 +267,42 @@ void rubidium_sync_task(void) {
             break;
             
         case SYNC_STATE_COARSE:
-            /* Coarse time acquisition */
-            if (!is_pps_valid()) {
-                printf("[RB] Lost PPS signal!\n");
+            /* Coarse time acquisition - need GNSS or Rb PPS */
+            if (!gnss_pps_valid() && !is_pps_valid()) {
+                printf("[RB] Lost all PPS signals!\n");
                 change_state(SYNC_STATE_ERROR);
                 break;
             }
-            
-            /* Wait for time to be set (via NTP or manual) or use default */
+
+            /* Wait for time to be set (via GNSS or NTP) or use default */
             if (epoch_set || state_pps_count >= 10) {
                 printf("[RB] Coarse sync complete, entering fine discipline\n");
+                if (gnss_pps_valid()) {
+                    printf("[RB] Using GNSS PPS as primary reference\n");
+                } else {
+                    printf("[RB] Using Rb PPS (GNSS not available)\n");
+                }
                 change_state(SYNC_STATE_FINE);
             }
             break;
             
         case SYNC_STATE_FINE:
-            /* Fine time discipline */
-            if (!is_pps_valid()) {
-                printf("[RB] Lost PPS signal, entering holdover\n");
+            /* Fine time discipline - GNSS primary, Rb backup */
+            if (!gnss_pps_valid() && !is_pps_valid()) {
+                printf("[RB] Lost all PPS signals, entering holdover\n");
                 change_state(SYNC_STATE_HOLDOVER);
                 break;
             }
-            
-            if (!rb_locked) {
-                printf("[RB] Lost rubidium lock, entering holdover\n");
-                change_state(SYNC_STATE_HOLDOVER);
-                break;
+
+            /* Warn if GNSS lost but Rb still available */
+            if (!gnss_pps_valid() && is_pps_valid()) {
+                static uint64_t last_gnss_warn = 0;
+                if (now - last_gnss_warn > 60000000) {  /* Every 60s */
+                    printf("[RB] GNSS PPS lost, using Rb PPS as backup\n");
+                    last_gnss_warn = now;
+                }
             }
-            
+
             /* Check if we've achieved lock */
             if (discipline_is_locked() && state_pps_count >= 60) {
                 printf("[RB] Time discipline LOCKED - Stratum 1 quality achieved!\n");
@@ -300,19 +312,22 @@ void rubidium_sync_task(void) {
             break;
             
         case SYNC_STATE_LOCKED:
-            /* Monitor for loss of lock */
-            if (!is_pps_valid()) {
-                printf("[RB] Lost PPS signal, entering holdover\n");
+            /* Monitor for loss of lock - GNSS primary, Rb backup */
+            if (!gnss_pps_valid() && !is_pps_valid()) {
+                printf("[RB] Lost all PPS signals, entering holdover\n");
                 change_state(SYNC_STATE_HOLDOVER);
                 break;
             }
-            
-            if (!rb_locked) {
-                printf("[RB] Lost rubidium lock, entering holdover\n");
-                change_state(SYNC_STATE_HOLDOVER);
-                break;
+
+            /* Warn if GNSS lost but continue with Rb */
+            if (!gnss_pps_valid() && is_pps_valid()) {
+                static uint64_t last_gnss_lock_warn = 0;
+                if (now - last_gnss_lock_warn > 300000000) {  /* Every 5 min */
+                    printf("[RB] GNSS PPS lost, maintaining lock with Rb backup\n");
+                    last_gnss_lock_warn = now;
+                }
             }
-            
+
             if (!discipline_is_locked()) {
                 printf("[RB] Lost time discipline lock, returning to fine sync\n");
                 change_state(SYNC_STATE_FINE);
@@ -320,23 +335,31 @@ void rubidium_sync_task(void) {
             break;
             
         case SYNC_STATE_HOLDOVER:
-            /* Running on stored frequency offset */
+            /* Running on stored frequency offset - Rb provides holdover stability */
             g_time_state.time_valid = (state_time < 3600);  /* Valid for 1 hour */
 
-            if (is_pps_valid() && rb_locked) {
-                printf("[RB] PPS and Rb lock restored, returning to fine sync\n");
+            /* Check if GNSS (primary) restored */
+            if (gnss_pps_valid() && gnss_has_time()) {
+                printf("[RB] GNSS restored, returning to fine sync\n");
                 change_state(SYNC_STATE_FINE);
+                break;
             }
 
-            /* Use GNSS PPS as backup during holdover if available */
-            if (!is_pps_valid() && gnss_pps_valid()) {
-                static uint32_t last_gnss_pps_report = 0;
-                if (now / 1000000 - last_gnss_pps_report >= 60) {
-                    printf("[RB] Using GNSS PPS as backup time source\n");
-                    last_gnss_pps_report = now / 1000000;
+            /* Use Rb PPS as backup during GNSS holdover if available */
+            if (!gnss_pps_valid() && is_pps_valid() && rb_locked) {
+                static uint32_t last_rb_backup_report = 0;
+                if (now / 1000000 - last_rb_backup_report >= 60) {
+                    printf("[RB] Using Rb PPS as backup (GNSS unavailable)\n");
+                    last_rb_backup_report = now / 1000000;
                 }
-                /* Extend holdover validity when GNSS PPS is available */
-                g_time_state.time_valid = (state_time < 7200);  /* 2 hours with GNSS */
+                /* Extended holdover validity with Rb backup */
+                g_time_state.time_valid = (state_time < 7200);  /* 2 hours with Rb */
+
+                /* If Rb is stable, can return to fine sync */
+                if (rb_lock_duration > 300) {  /* Rb stable for 5+ min */
+                    printf("[RB] Rb stable, returning to fine sync (GNSS-degraded mode)\n");
+                    change_state(SYNC_STATE_FINE);
+                }
             }
 
             if (state_time > 86400) {  /* 24 hours */
@@ -346,22 +369,22 @@ void rubidium_sync_task(void) {
             break;
             
         case SYNC_STATE_ERROR:
-            /* Wait for conditions to improve */
+            /* Wait for conditions to improve - prioritize GNSS recovery */
             g_time_state.time_valid = false;
 
-            if (rb_locked && is_pps_valid()) {
-                printf("[RB] Conditions restored, restarting sync\n");
+            /* GNSS restored - return to normal operation */
+            if (gnss_has_time() && gnss_pps_valid()) {
+                printf("[RB] GNSS restored, restarting sync\n");
                 discipline_reset();
                 change_state(SYNC_STATE_FREQ_CAL);
+                break;
             }
 
-            /* If GNSS has valid time and PPS, we can provide degraded service */
-            if (gnss_has_time() && gnss_pps_valid()) {
-                static uint32_t last_gnss_error_report = 0;
-                if (now / 1000000 - last_gnss_error_report >= 300) {  /* Every 5 min */
-                    printf("[RB] GNSS available - degraded stratum 2 service possible\n");
-                    last_gnss_error_report = now / 1000000;
-                }
+            /* Rb available as backup */
+            if (rb_locked && is_pps_valid()) {
+                printf("[RB] Rb available as backup, restarting sync (degraded mode)\n");
+                discipline_reset();
+                change_state(SYNC_STATE_FREQ_CAL);
             }
             break;
     }
