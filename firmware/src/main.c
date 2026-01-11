@@ -34,7 +34,7 @@
 #include "roughtime.h"
 #include "gptp.h"
 #include "nts.h"
-#include "gps_input.h"
+#include "gnss_input.h"
 
 /*============================================================================
  * GLOBAL VARIABLES
@@ -85,7 +85,7 @@ void gpio_init_all(void) {
     gpio_set_dir(GPIO_DEBUG_PPS_OUT, GPIO_OUT);
     gpio_put(GPIO_DEBUG_PPS_OUT, 0);
 
-    /* Note: GPIO_GPS_PPS_INPUT (GP11) is initialized by gps_input_init() */
+    /* Note: GPIO_GNSS_PPS_INPUT (GP11) is initialized by gnss_input_init() */
 
     /* Note: Pulse outputs (GP14-GP18) are now managed by pulse_output module */
 }
@@ -241,10 +241,10 @@ void chronos_init(void) {
     radio_timecode_init();
 
     /* GNSS input must be initialized BEFORE AC frequency monitor because
-     * gps_input_init() registers the shared GPIO callback that handles
+     * gnss_input_init() registers the shared GPIO callback that handles
      * both GNSS PPS (GP11) and AC zero crossing (GP19) interrupts */
     printf("[INIT] Initializing GNSS receiver input...\n");
-    gps_input_init();
+    gnss_input_init();
 
     printf("[INIT] Initializing AC frequency monitor...\n");
     ac_freq_init();
@@ -258,7 +258,7 @@ void chronos_init(void) {
         radio_timecode_enable(RADIO_JJY40, cfg->rf_jjy40_enabled);
         radio_timecode_enable(RADIO_JJY60, cfg->rf_jjy60_enabled);
         nmea_output_enable(cfg->nmea_enabled);
-        gps_enable(cfg->gps_enabled);
+        gnss_enable(cfg->gnss_enabled);
         printf("[INIT]   DCF77: %s, WWVB: %s, JJY40: %s, JJY60: %s\n",
                cfg->rf_dcf77_enabled ? "ON" : "OFF",
                cfg->rf_wwvb_enabled ? "ON" : "OFF",
@@ -266,7 +266,7 @@ void chronos_init(void) {
                cfg->rf_jjy60_enabled ? "ON" : "OFF");
         printf("[INIT]   NMEA: %s, GNSS: %s\n",
                cfg->nmea_enabled ? "ON" : "OFF",
-               cfg->gps_enabled ? "ON" : "OFF");
+               cfg->gnss_enabled ? "ON" : "OFF");
     }
 
     /* IRIG-B disabled - causes crashes, needs debugging
@@ -484,8 +484,8 @@ int main(void) {
         radio_timecode_task();
         /* irig_b_task(); - disabled, crashes */
 
-        /* GPS input task */
-        gps_input_task();
+        /* GNSS input task */
+        gnss_input_task();
         
         /* Update status LEDs */
         update_status_leds();

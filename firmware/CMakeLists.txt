@@ -66,8 +66,8 @@ add_executable(chronos_rb
     src/roughtime.c
     src/gptp.c
     src/nts.c
-    # GPS receiver input
-    src/gps_input.c
+    # GNSS receiver input
+    src/gnss_input.c
 )
 
 target_include_directories(chronos_rb PRIVATE

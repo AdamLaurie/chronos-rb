@@ -22,7 +22,7 @@
 #include "ota_update.h"
 #include "radio_timecode.h"
 #include "nmea_output.h"
-#include "gps_input.h"
+#include "gnss_input.h"
 
 /*============================================================================
  * HTTP CONSTANTS
@@ -694,28 +694,28 @@ static int generate_status_page(char *buf, size_t len) {
                   (g_time_state.sync_state == SYNC_STATE_LOCKED);
     const char *logo_class = all_ok ? "logo-ok" : "logo-error";
 
-    /* GPS status */
-    const char *gps_fix_str = "None";
-    gps_fix_type_t fix = gps_get_fix_type();
-    if (fix == GPS_FIX_2D) gps_fix_str = "2D";
-    else if (fix == GPS_FIX_3D) gps_fix_str = "3D";
+    /* GNSS status */
+    const char *gnss_fix_str = "None";
+    gnss_fix_type_t fix = gnss_get_fix_type();
+    if (fix == GNSS_FIX_2D) gnss_fix_str = "2D";
+    else if (fix == GNSS_FIX_3D) gnss_fix_str = "3D";
 
-    char gps_time_str[24] = "N/A";
-    if (gps_has_time()) {
-        gps_time_t gps_t;
-        gps_get_utc_time(&gps_t);
-        snprintf(gps_time_str, sizeof(gps_time_str), "%02d:%02d:%02d",
-                 gps_t.hour, gps_t.minute, gps_t.second);
+    char gnss_time_str[24] = "N/A";
+    if (gnss_has_time()) {
+        gnss_time_t gnss_t;
+        gnss_get_utc_time(&gnss_t);
+        snprintf(gnss_time_str, sizeof(gnss_time_str), "%02d:%02d:%02d",
+                 gnss_t.hour, gnss_t.minute, gnss_t.second);
     }
 
-    /* GPS position with Google Maps link */
-    char gps_pos_str[32] = "N/A";
-    char gps_pos_url[64] = "#";
-    if (gps_has_fix()) {
+    /* GNSS position with Google Maps link */
+    char gnss_pos_str[32] = "N/A";
+    char gnss_pos_url[64] = "#";
+    if (gnss_has_fix()) {
         double lat, lon, alt;
-        gps_get_position(&lat, &lon, &alt);
-        snprintf(gps_pos_str, sizeof(gps_pos_str), "Google Maps");
-        snprintf(gps_pos_url, sizeof(gps_pos_url), "https://maps.google.com/?q=%.6f,%.6f", lat, lon);
+        gnss_get_position(&lat, &lon, &alt);
+        snprintf(gnss_pos_str, sizeof(gnss_pos_str), "Google Maps");
+        snprintf(gnss_pos_url, sizeof(gnss_pos_url), "https://maps.google.com/?q=%.6f,%.6f", lat, lon);
     }
 
     /* Format uptime as days:hours:minutes:seconds */
@@ -733,7 +733,7 @@ static int generate_status_page(char *buf, size_t len) {
                  (unsigned long)hours, (unsigned long)mins, (unsigned long)secs);
     }
 
-    /* PPS offset, drift and jitter (FE PPS vs GPS PPS) */
+    /* PPS offset, drift and jitter (FE PPS vs GNSS PPS) */
     char pps_offset_str[32] = "N/A";
     char pps_drift_str[32] = "N/A";
     char pps_jitter_str[32] = "N/A";
@@ -773,20 +773,20 @@ static int generate_status_page(char *buf, size_t len) {
         radio_timecode_is_enabled(RADIO_JJY40) ? "ON" : "OFF",
         radio_timecode_is_enabled(RADIO_JJY60) ? "ON" : "OFF",
         nmea_output_is_enabled() ? "ON" : "OFF",
-        gps_is_enabled() ? "Enabled" : "Disabled",
-        gps_fix_str,
-        (int)gps_get_satellites(),
-        gps_pos_url,
-        gps_pos_str,
-        gps_time_str,
-        gps_pps_valid() ? "Active" : "No signal",
+        gnss_is_enabled() ? "Enabled" : "Disabled",
+        gnss_fix_str,
+        (int)gnss_get_satellites(),
+        gnss_pos_url,
+        gnss_pos_str,
+        gnss_time_str,
+        gnss_pps_valid() ? "Active" : "No signal",
         pps_offset_str,
         pps_drift_str,
         pps_jitter_str,
         (unsigned long)freq_counter_get_fe_pps_count(),
-        (unsigned long)freq_counter_get_gps_pps_count(),
-        gps_get_firmware_version(),
-        gps_get_hardware_version(),
+        (unsigned long)freq_counter_get_gnss_pps_count(),
+        gnss_get_firmware_version(),
+        gnss_get_hardware_version(),
         pulse_html,
         CHRONOS_VERSION_STRING,
         CHRONOS_BUILD_DATE
@@ -914,19 +914,19 @@ static int generate_json_status(char *buf, size_t len) {
         radio_timecode_is_enabled(RADIO_JJY40) ? "true" : "false",
         radio_timecode_is_enabled(RADIO_JJY60) ? "true" : "false",
         nmea_output_is_enabled() ? "true" : "false",
-        gps_is_enabled() ? "true" : "false",
-        gps_has_fix() ? "true" : "false",
-        gps_has_time() ? "true" : "false",
-        gps_pps_valid() ? "true" : "false",
-        (int)gps_get_satellites(),
-        (int)gps_get_fix_type(),
-        (unsigned long)gps_get_state()->pps_count,
-        (unsigned long)gps_get_state()->nmea_count,
-        (unsigned long)gps_get_state()->nmea_errors,
-        gps_get_firmware_version(),
-        gps_get_hardware_version(),
-        (int)gps_get_leap_seconds(),
-        gps_leap_seconds_is_valid() ? "true" : "false",
+        gnss_is_enabled() ? "true" : "false",
+        gnss_has_fix() ? "true" : "false",
+        gnss_has_time() ? "true" : "false",
+        gnss_pps_valid() ? "true" : "false",
+        (int)gnss_get_satellites(),
+        (int)gnss_get_fix_type(),
+        (unsigned long)gnss_get_state()->pps_count,
+        (unsigned long)gnss_get_state()->nmea_count,
+        (unsigned long)gnss_get_state()->nmea_errors,
+        gnss_get_firmware_version(),
+        gnss_get_hardware_version(),
+        (int)gnss_get_leap_seconds(),
+        gnss_leap_seconds_is_valid() ? "true" : "false",
         pulse_json,
         ip_str,
         CHRONOS_VERSION_STRING
@@ -1276,8 +1276,8 @@ static err_t web_recv_callback(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, 
             }
             if (parse_form_field(body, "gps", val, sizeof(val))) {
                 bool enable = (strcmp(val, "on") == 0 || strcmp(val, "1") == 0);
-                gps_enable(enable);
-                cfg->gps_enabled = enable;
+                gnss_enable(enable);
+                cfg->gnss_enabled = enable;
             }
             if (parse_form_checkbox(body, "save")) {
                 config_save();

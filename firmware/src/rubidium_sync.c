@@ -17,7 +17,7 @@
 #include "hardware/sync.h"
 
 #include "chronos_rb.h"
-#include "gps_input.h"
+#include "gnss_input.h"
 
 /* Forward declaration */
 void set_time_unix(uint32_t unix_time);
@@ -36,9 +36,9 @@ static uint32_t subsecond_us = 0;        /* Microseconds within current second *
 static uint64_t last_pps_us = 0;         /* Timestamp of last PPS */
 static int64_t accumulated_offset = 0;   /* Accumulated time offset */
 
-/* GPS time synchronization state */
-static uint32_t pending_gps_time = 0;    /* GPS time to set on next PPS */
-static bool gps_time_pending = false;    /* True if we have a GPS time waiting */
+/* GNSS time synchronization state */
+static uint32_t pending_gnss_time = 0;    /* GNSS time to set on next PPS */
+static bool gnss_time_pending = false;    /* True if we have a GNSS time waiting */
 
 /* Rubidium status */
 static bool rb_lock_status = false;
@@ -125,14 +125,14 @@ void pps_irq_handler(void) {
 
     last_pps_us = pps_time;
 
-    /* Apply pending GPS time if waiting
-     * GPS NMEA arrives ~300ms after the PPS it refers to
-     * So pending_gps_time is the time of the PREVIOUS GPS second
+    /* Apply pending GNSS time if waiting
+     * GNSS NMEA arrives ~300ms after the PPS it refers to
+     * So pending_gnss_time is the time of the PREVIOUS GNSS second
      * This PPS marks the start of the NEXT second */
-    if (gps_time_pending) {
-        current_seconds = pending_gps_time + 1;
+    if (gnss_time_pending) {
+        current_seconds = pending_gnss_time + 1;
         epoch_offset = 0;
-        gps_time_pending = false;
+        gnss_time_pending = false;
         epoch_set = true;
     } else {
         /* Normal increment */
@@ -206,15 +206,15 @@ void rubidium_sync_task(void) {
         last_warmup_time = now;
     }
 
-    /* Queue GPS time if not already set (will be applied on next PPS edge)
-     * GPS NMEA arrives ~300ms after the PPS pulse it describes
+    /* Queue GNSS time if not already set (will be applied on next PPS edge)
+     * GNSS NMEA arrives ~300ms after the PPS pulse it describes
      * So we queue the time and apply it on the next PPS edge with +1 second */
-    if (!epoch_set && !gps_time_pending && gps_has_time()) {
-        uint32_t gps_time = gps_get_unix_time();
-        if (gps_time > 0) {
-            printf("[RB] Queueing GPS time %lu for next PPS edge\n", gps_time);
-            pending_gps_time = gps_time;
-            gps_time_pending = true;
+    if (!epoch_set && !gnss_time_pending && gnss_has_time()) {
+        uint32_t gnss_time = gnss_get_unix_time();
+        if (gnss_time > 0) {
+            printf("[RB] Queueing GNSS time %lu for next PPS edge\n", gnss_time);
+            pending_gnss_time = gnss_time;
+            gnss_time_pending = true;
         }
     }
 
@@ -229,9 +229,9 @@ void rubidium_sync_task(void) {
                 change_state(SYNC_STATE_FREQ_CAL);
             } else if (state_time > 600) {  /* 10 minute timeout */
                 printf("[RB] ERROR: Rubidium failed to lock within 10 minutes\n");
-                /* Check if GPS is available as fallback */
-                if (gps_has_time() && gps_pps_valid()) {
-                    printf("[RB] GPS available as fallback time source\n");
+                /* Check if GNSS is available as fallback */
+                if (gnss_has_time() && gnss_pps_valid()) {
+                    printf("[RB] GNSS available as fallback time source\n");
                 }
                 change_state(SYNC_STATE_ERROR);
             }
@@ -328,15 +328,15 @@ void rubidium_sync_task(void) {
                 change_state(SYNC_STATE_FINE);
             }
 
-            /* Use GPS PPS as backup during holdover if available */
-            if (!is_pps_valid() && gps_pps_valid()) {
-                static uint32_t last_gps_pps_report = 0;
-                if (now / 1000000 - last_gps_pps_report >= 60) {
-                    printf("[RB] Using GPS PPS as backup time source\n");
-                    last_gps_pps_report = now / 1000000;
+            /* Use GNSS PPS as backup during holdover if available */
+            if (!is_pps_valid() && gnss_pps_valid()) {
+                static uint32_t last_gnss_pps_report = 0;
+                if (now / 1000000 - last_gnss_pps_report >= 60) {
+                    printf("[RB] Using GNSS PPS as backup time source\n");
+                    last_gnss_pps_report = now / 1000000;
                 }
-                /* Extend holdover validity when GPS PPS is available */
-                g_time_state.time_valid = (state_time < 7200);  /* 2 hours with GPS */
+                /* Extend holdover validity when GNSS PPS is available */
+                g_time_state.time_valid = (state_time < 7200);  /* 2 hours with GNSS */
             }
 
             if (state_time > 86400) {  /* 24 hours */
@@ -355,12 +355,12 @@ void rubidium_sync_task(void) {
                 change_state(SYNC_STATE_FREQ_CAL);
             }
 
-            /* If GPS has valid time and PPS, we can provide degraded service */
-            if (gps_has_time() && gps_pps_valid()) {
-                static uint32_t last_gps_error_report = 0;
-                if (now / 1000000 - last_gps_error_report >= 300) {  /* Every 5 min */
-                    printf("[RB] GPS available - degraded stratum 2 service possible\n");
-                    last_gps_error_report = now / 1000000;
+            /* If GNSS has valid time and PPS, we can provide degraded service */
+            if (gnss_has_time() && gnss_pps_valid()) {
+                static uint32_t last_gnss_error_report = 0;
+                if (now / 1000000 - last_gnss_error_report >= 300) {  /* Every 5 min */
+                    printf("[RB] GNSS available - degraded stratum 2 service possible\n");
+                    last_gnss_error_report = now / 1000000;
                 }
             }
             break;
@@ -493,15 +493,15 @@ uint32_t get_rb_lock_duration(void) {
 }
 
 /**
- * Force time resync from GPS
- * Clears the epoch flag and GPS state so fresh data will be used
+ * Force time resync from GNSS
+ * Clears the epoch flag and GNSS state so fresh data will be used
  */
 void force_time_resync(void) {
     uint32_t irq = save_and_disable_interrupts();
     epoch_set = false;
-    gps_time_pending = false;
-    pending_gps_time = 0;
+    gnss_time_pending = false;
+    pending_gnss_time = 0;
     restore_interrupts(irq);
-    gps_reset_time();  /* Flush UART and wait for fresh NMEA */
+    gnss_reset_time();  /* Flush UART and wait for fresh NMEA */
     printf("[RB] Time resync requested - will sync on next PPS edge\n");
 }

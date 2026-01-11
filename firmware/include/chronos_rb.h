@@ -19,8 +19,8 @@
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
 #define CHRONOS_VERSION_MINOR   4
-#define CHRONOS_VERSION_PATCH   63
-#define CHRONOS_VERSION_STRING  "1.4.63"
+#define CHRONOS_VERSION_PATCH   65
+#define CHRONOS_VERSION_STRING  "1.4.65"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
@@ -48,8 +48,8 @@
 /* Debug/Diagnostic Outputs */
 #define GPIO_DEBUG_PPS_OUT      10      /* GP10 - Regenerated 1PPS for test */
 
-/* GPS Receiver Input (NEO-M8N or similar) */
-#define GPIO_GPS_PPS_INPUT      11      /* GP11 - GPS 1PPS input (backup time source) */
+/* GNSS Receiver Input (u-blox NEO-M8N, M9N, or similar) */
+#define GPIO_GNSS_PPS_INPUT     11      /* GP11 - GNSS 1PPS input (backup time source) */
 
 /* UART for Debug (optional) */
 #define GPIO_UART_TX            0       /* GP0 - UART0 TX */
@@ -78,9 +78,9 @@
 /* IRIG-B Timecode Output */
 #define GPIO_IRIG_B             27      /* GP27 - IRIG-B timecode */
 
-/* NMEA/GPS Serial (UART1) */
-#define GPIO_GPS_TX             4       /* GP4 - UART1 TX (commands to GPS module) */
-#define GPIO_GPS_RX             5       /* GP5 - UART1 RX (NMEA from GPS module) */
+/* NMEA/GNSS Serial (UART1) */
+#define GPIO_GNSS_TX            4       /* GP4 - UART1 TX (commands to GNSS module) */
+#define GPIO_GNSS_RX            5       /* GP5 - UART1 RX (NMEA from GNSS module) */
 
 /* Interval pulse timing */
 #define PULSE_WIDTH_MS          10      /* Output pulse width in milliseconds */
@@ -277,15 +277,15 @@ bool freq_counter_signal_present(void);
 
 /* PPS offset measurement (FE PPS vs GPS PPS, 10MHz locked) */
 void freq_counter_pps_task(void);            /* Poll PIO FIFOs - call from main loop */
-void freq_counter_capture_gps_pps(void);     /* Legacy no-op */
+void freq_counter_capture_gnss_pps(void);    /* Legacy no-op */
 int32_t freq_counter_get_pps_offset(void);   /* Get offset in 10MHz ticks */
 double freq_counter_get_pps_drift(void);     /* Get drift rate (ticks/sec) */
 double freq_counter_get_pps_stddev(void);    /* Get offset std deviation */
 bool freq_counter_pps_offset_valid(void);    /* Check if offset is valid */
 uint32_t freq_counter_get_fe_pps_count(void);  /* Debug: FE PPS capture count */
-uint32_t freq_counter_get_gps_pps_count(void); /* Debug: GPS PPS capture count */
+uint32_t freq_counter_get_gnss_pps_count(void); /* Debug: GNSS PPS capture count */
 bool freq_counter_fe_pps_valid(void);        /* Check if FE PPS capture valid */
-bool freq_counter_gps_pps_valid(void);       /* Check if GPS PPS capture valid */
+bool freq_counter_gnss_pps_valid(void);      /* Check if GNSS PPS capture valid */
 
 /* Time discipline */
 void discipline_init(void);

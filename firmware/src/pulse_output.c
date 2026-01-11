@@ -14,6 +14,7 @@
 
 #include "chronos_rb.h"
 #include "pulse_output.h"
+#include "config.h"
 
 /*============================================================================
  * PRIVATE VARIABLES
@@ -21,6 +22,80 @@
 
 static pulse_config_t pulse_configs[MAX_PULSE_OUTPUTS];
 static bool pulse_system_initialized = false;
+
+/*============================================================================
+ * CONFIG STORAGE HELPERS
+ *============================================================================*/
+
+/**
+ * Convert runtime config to storage format
+ */
+static void config_to_stored(const pulse_config_t *src, pulse_config_stored_t *dst) {
+    dst->gpio_pin = src->gpio_pin;
+    dst->mode = (uint8_t)src->mode;
+    dst->trigger_second = src->trigger_second;
+    dst->trigger_minute = src->trigger_minute;
+    dst->trigger_hour = src->trigger_hour;
+    dst->active = src->active ? 1 : 0;
+    dst->pulse_width_ms = src->pulse_width_ms;
+    dst->pulse_count = src->pulse_count;
+    dst->pulse_gap_ms = src->pulse_gap_ms;
+    /* Cap interval at uint16_t max (65535 seconds = ~18 hours) */
+    dst->interval = (src->interval > 65535) ? 65535 : (uint16_t)src->interval;
+}
+
+/**
+ * Convert storage format to runtime config
+ */
+static void stored_to_config(const pulse_config_stored_t *src, pulse_config_t *dst) {
+    memset(dst, 0, sizeof(pulse_config_t));
+    dst->gpio_pin = src->gpio_pin;
+    dst->mode = (pulse_mode_t)src->mode;
+    dst->trigger_second = src->trigger_second;
+    dst->trigger_minute = src->trigger_minute;
+    dst->trigger_hour = src->trigger_hour;
+    dst->active = src->active != 0;
+    dst->pulse_width_ms = src->pulse_width_ms;
+    dst->pulse_count = src->pulse_count;
+    dst->pulse_gap_ms = src->pulse_gap_ms;
+    dst->interval = src->interval;
+}
+
+/**
+ * Save current pulse config to persistent storage
+ */
+static void save_pulse_config(int slot) {
+    if (slot < 0 || slot >= MAX_PULSE_OUTPUTS) return;
+
+    pulse_config_stored_t stored;
+    config_to_stored(&pulse_configs[slot], &stored);
+    config_set_pulse_config(slot, &stored);
+}
+
+/**
+ * Load pulse configs from persistent storage
+ */
+static void load_pulse_configs(void) {
+    pulse_config_stored_t *stored = config_get_pulse_configs();
+    int loaded = 0;
+
+    for (int i = 0; i < MAX_PULSE_OUTPUTS; i++) {
+        if (stored[i].active) {
+            stored_to_config(&stored[i], &pulse_configs[i]);
+
+            /* Initialize GPIO for active configs */
+            gpio_init(pulse_configs[i].gpio_pin);
+            gpio_set_dir(pulse_configs[i].gpio_pin, GPIO_OUT);
+            gpio_put(pulse_configs[i].gpio_pin, 0);
+
+            loaded++;
+        }
+    }
+
+    if (loaded > 0) {
+        printf("[PULSE] Loaded %d pulse configurations from flash\n", loaded);
+    }
+}
 
 /*============================================================================
  * HELPER FUNCTIONS
@@ -111,6 +186,10 @@ static void continue_burst(pulse_config_t *cfg) {
 void pulse_output_init(void) {
     memset(pulse_configs, 0, sizeof(pulse_configs));
     pulse_system_initialized = true;
+
+    /* Load saved configurations from flash */
+    load_pulse_configs();
+
     printf("[PULSE] Pulse output system initialized\n");
 }
 
@@ -244,6 +323,9 @@ int pulse_output_set_interval(uint8_t gpio_pin, uint32_t interval_sec,
     printf("[PULSE] GPIO %d: interval %lu sec, width %u ms\n",
            gpio_pin, interval_sec, pulse_width_ms);
 
+    /* Save to persistent storage */
+    save_pulse_config(slot);
+
     return slot;
 }
 
@@ -287,6 +369,9 @@ int pulse_output_set_second(uint8_t gpio_pin, uint8_t second,
     printf("[PULSE] GPIO %d: on second %u, %u ms pulse x%u (gap %u ms)\n",
            gpio_pin, second, pulse_width_ms, count, gap_ms);
 
+    /* Save to persistent storage */
+    save_pulse_config(slot);
+
     return slot;
 }
 
@@ -329,6 +414,9 @@ int pulse_output_set_minute(uint8_t gpio_pin, uint8_t minute,
 
     printf("[PULSE] GPIO %d: on minute %u, %u ms pulse x%u (gap %u ms)\n",
            gpio_pin, minute, pulse_width_ms, count, gap_ms);
+
+    /* Save to persistent storage */
+    save_pulse_config(slot);
 
     return slot;
 }
@@ -378,6 +466,9 @@ int pulse_output_set_time(uint8_t gpio_pin, uint8_t hour, uint8_t minute,
     printf("[PULSE] GPIO %d: at %02u:%02u, %u ms pulse x%u (gap %u ms)\n",
            gpio_pin, hour, minute, pulse_width_ms, count, gap_ms);
 
+    /* Save to persistent storage */
+    save_pulse_config(slot);
+
     return slot;
 }
 
@@ -393,6 +484,9 @@ bool pulse_output_disable(uint8_t gpio_pin) {
 
     gpio_put(gpio_pin, 0);
     pulse_configs[slot].active = false;
+
+    /* Save to persistent storage */
+    save_pulse_config(slot);
 
     printf("[PULSE] GPIO %d disabled\n", gpio_pin);
     return true;
@@ -472,5 +566,9 @@ void pulse_output_clear_all(void) {
         }
     }
     memset(pulse_configs, 0, sizeof(pulse_configs));
+
+    /* Clear persistent storage */
+    config_clear_pulse_configs();
+
     printf("[PULSE] All pulse outputs cleared\n");
 }

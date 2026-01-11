@@ -32,7 +32,7 @@
 #include "config.h"
 #include "radio_timecode.h"
 #include "nmea_output.h"
-#include "gps_input.h"
+#include "gnss_input.h"
 
 /*============================================================================
  * CONFIGURATION
@@ -202,9 +202,9 @@ static void cmd_help(void) {
     cli_printf("  nmea <on|off>             - Enable/disable NMEA output\n");
     cli_printf("\n");
     cli_printf("GNSS Receiver:\n");
-    cli_printf("  gps                       - Show GNSS status\n");
-    cli_printf("  gps <on|off>              - Enable/disable GNSS input\n");
-    cli_printf("  gps debug <on|off>        - Show incoming NMEA timestamps\n");
+    cli_printf("  gnss                      - Show GNSS status\n");
+    cli_printf("  gnss <on|off>             - Enable/disable GNSS input\n");
+    cli_printf("  gnss debug <on|off>       - Show incoming NMEA timestamps\n");
     cli_printf("\n");
     cli_printf("Time Sync:\n");
     cli_printf("  sync                      - Force time resync from GNSS\n");
@@ -301,8 +301,8 @@ static void cmd_pins(void) {
     cli_printf("\n");
 
     cli_printf("GNSS Receiver:\n");
-    cli_printf("  GP%-2d  GNSS PPS Input     1PPS from GNSS (backup)\n", GPIO_GPS_PPS_INPUT);
-    cli_printf("  GP%-2d  GNSS RX (UART1)    NMEA from GNSS module\n", GPIO_GPS_RX);
+    cli_printf("  GP%-2d  GNSS PPS Input     1PPS from GNSS (backup)\n", GPIO_GNSS_PPS_INPUT);
+    cli_printf("  GP%-2d  GNSS RX (UART1)    NMEA from GNSS module\n", GPIO_GNSS_RX);
     cli_printf("\n");
 
     cli_printf("Outputs - Fixed Interval Pulses:\n");
@@ -686,7 +686,7 @@ static void cmd_nmea(int argc, char **argv) {
  * Force time resync from GNSS
  */
 static void cmd_sync(void) {
-    if (!gps_has_time()) {
+    if (!gnss_has_time()) {
         cli_printf("Error: GNSS does not have valid time\n");
         cli_printf("Wait for GNSS fix before syncing\n");
         return;
@@ -698,9 +698,9 @@ static void cmd_sync(void) {
     /* Wait a moment for the sync to happen */
     sleep_ms(100);
 
-    if (gps_has_time()) {
-        gps_time_t t;
-        gps_get_utc_time(&t);
+    if (gnss_has_time()) {
+        gnss_time_t t;
+        gnss_get_utc_time(&t);
         cli_printf("GNSS time: %04d-%02d-%02d %02d:%02d:%02d UTC\n",
                    t.year, t.month, t.day, t.hour, t.minute, t.second);
         cli_printf("Time will be set on next GNSS update\n");
@@ -736,15 +736,15 @@ static void cmd_time_watch(void) {
             uint32_t mins = (secs % 3600) / 60;
             uint32_t sec = secs % 60;
 
-            /* Get GPS time for comparison */
-            gps_time_t gps_t = {0};
-            if (gps_has_time()) {
-                gps_get_utc_time(&gps_t);
+            /* Get GNSS time for comparison */
+            gnss_time_t gnss_t = {0};
+            if (gnss_has_time()) {
+                gnss_get_utc_time(&gnss_t);
             }
 
             printf("%02lu:%02lu:%02lu | %02d:%02d:%02d | %lu\n",
                    (unsigned long)hours, (unsigned long)mins, (unsigned long)sec,
-                   gps_t.hour, gps_t.minute, gps_t.second,
+                   gnss_t.hour, gnss_t.minute, gnss_t.second,
                    (unsigned long)unix_sec);
         }
 
@@ -756,58 +756,58 @@ static void cmd_time_watch(void) {
 /**
  * GNSS receiver control
  */
-static void cmd_gps(int argc, char **argv) {
+static void cmd_gnss(int argc, char **argv) {
     config_t *cfg = config_get();
 
     if (argc < 2) {
         const char *fix_str = "None";
-        gps_fix_type_t fix = gps_get_fix_type();
-        if (fix == GPS_FIX_2D) fix_str = "2D";
-        else if (fix == GPS_FIX_3D) fix_str = "3D";
+        gnss_fix_type_t fix = gnss_get_fix_type();
+        if (fix == GNSS_FIX_2D) fix_str = "2D";
+        else if (fix == GNSS_FIX_3D) fix_str = "3D";
 
         cli_printf("\n");
         cli_printf("GNSS Receiver Status:\n");
-        cli_printf("  Enabled:        %s\n", gps_is_enabled() ? "YES" : "NO");
-        cli_printf("  Firmware:       %s\n", gps_get_firmware_version());
-        cli_printf("  Hardware:       %s\n", gps_get_hardware_version());
-        cli_printf("  Leap Seconds:   %d (%s)\n", gps_get_leap_seconds(),
-                   gps_leap_seconds_is_valid() ? "valid" : "invalid");
+        cli_printf("  Enabled:        %s\n", gnss_is_enabled() ? "YES" : "NO");
+        cli_printf("  Firmware:       %s\n", gnss_get_firmware_version());
+        cli_printf("  Hardware:       %s\n", gnss_get_hardware_version());
+        cli_printf("  Leap Seconds:   %d (%s)\n", gnss_get_leap_seconds(),
+                   gnss_leap_seconds_is_valid() ? "valid" : "invalid");
         cli_printf("  Fix:            %s\n", fix_str);
-        cli_printf("  Satellites:     %d\n", gps_get_satellites());
-        cli_printf("  Has Time:       %s\n", gps_has_time() ? "YES" : "NO");
-        cli_printf("  PPS Valid:      %s\n", gps_pps_valid() ? "YES" : "NO");
-        cli_printf("  PPS Count:      %lu\n", (unsigned long)gps_get_pps_count());
+        cli_printf("  Satellites:     %d\n", gnss_get_satellites());
+        cli_printf("  Has Time:       %s\n", gnss_has_time() ? "YES" : "NO");
+        cli_printf("  PPS Valid:      %s\n", gnss_pps_valid() ? "YES" : "NO");
+        cli_printf("  PPS Count:      %lu\n", (unsigned long)gnss_get_pps_count());
 
-        if (gps_has_time()) {
-            gps_time_t t;
-            gps_get_utc_time(&t);
+        if (gnss_has_time()) {
+            gnss_time_t t;
+            gnss_get_utc_time(&t);
             cli_printf("  UTC Time:       %04d-%02d-%02d %02d:%02d:%02d\n",
                        t.year, t.month, t.day, t.hour, t.minute, t.second);
         }
 
-        if (gps_has_fix()) {
+        if (gnss_has_fix()) {
             double lat, lon, alt;
-            gps_get_position(&lat, &lon, &alt);
+            gnss_get_position(&lat, &lon, &alt);
             cli_printf("  Position:       %.6f, %.6f\n", lat, lon);
             cli_printf("  Altitude:       %.1f m\n", alt);
         }
 
         cli_printf("\nPins: PPS=GP%d, RX=GP%d, TX=GP%d\n",
-                   GPIO_GPS_PPS_INPUT, GPIO_GPS_RX, GPIO_GPS_TX);
-        cli_printf("Usage: gps <on|off>\n");
+                   GPIO_GNSS_PPS_INPUT, GPIO_GNSS_RX, GPIO_GNSS_TX);
+        cli_printf("Usage: gnss <on|off>\n");
         cli_printf("\n");
         return;
     }
 
     if (strcmp(argv[1], "debug") == 0) {
         bool enable = (argc > 2 && (strcmp(argv[2], "on") == 0 || strcmp(argv[2], "1") == 0));
-        gps_set_debug(enable);
+        gnss_set_debug(enable);
         return;
     }
 
     bool enable = (strcmp(argv[1], "on") == 0 || strcmp(argv[1], "1") == 0);
-    gps_enable(enable);
-    cfg->gps_enabled = enable;
+    gnss_enable(enable);
+    cfg->gnss_enabled = enable;
     cli_printf("GNSS %s\n", enable ? "enabled" : "disabled");
     cli_printf("Use 'config save' to persist settings\n");
 }
@@ -856,8 +856,8 @@ static void process_command(char *line) {
         cmd_rf(argc, argv);
     } else if (strcmp(argv[0], "nmea") == 0) {
         cmd_nmea(argc, argv);
-    } else if (strcmp(argv[0], "gps") == 0) {
-        cmd_gps(argc, argv);
+    } else if (strcmp(argv[0], "gnss") == 0) {
+        cmd_gnss(argc, argv);
     } else if (strcmp(argv[0], "sync") == 0) {
         cmd_sync();
     } else if (strcmp(argv[0], "watch") == 0) {

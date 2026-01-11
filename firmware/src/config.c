@@ -91,8 +91,11 @@ static void config_set_defaults(void) {
     /* NMEA output - enabled by default */
     current_config.nmea_enabled = true;
 
-    /* GPS receiver - enabled by default */
-    current_config.gps_enabled = true;
+    /* GNSS receiver - enabled by default */
+    current_config.gnss_enabled = true;
+
+    /* Pulse outputs - all disabled by default */
+    memset(current_config.pulse_configs, 0, sizeof(current_config.pulse_configs));
 }
 
 /**
@@ -104,7 +107,7 @@ static bool config_validate(const config_t *cfg) {
     }
 
     /* Accept current version or previous versions for migration */
-    if (cfg->version != CONFIG_VERSION && cfg->version != 1 && cfg->version != 2) {
+    if (cfg->version != CONFIG_VERSION && cfg->version != 1 && cfg->version != 2 && cfg->version != 3) {
         return false;
     }
 
@@ -135,8 +138,14 @@ static void config_migrate(void) {
     }
     if (current_config.version == 2) {
         printf("[CONFIG] Migrating from v2 to v3...\n");
-        /* v2 -> v3: Add GPS settings with default */
-        current_config.gps_enabled = true;
+        /* v2 -> v3: Add GNSS settings with default */
+        current_config.gnss_enabled = true;
+        current_config.version = 3;
+    }
+    if (current_config.version == 3) {
+        printf("[CONFIG] Migrating from v3 to v4...\n");
+        /* v3 -> v4: Add pulse output storage (initialize to empty) */
+        memset(current_config.pulse_configs, 0, sizeof(current_config.pulse_configs));
         current_config.version = CONFIG_VERSION;
     }
 }
@@ -284,8 +293,23 @@ void config_print(void) {
     printf("  NMEA:            %s\n", current_config.nmea_enabled ? "Enabled" : "Disabled");
     printf("\n");
 
-    printf("GPS Receiver:\n");
-    printf("  GPS Input:       %s\n", current_config.gps_enabled ? "Enabled" : "Disabled");
+    printf("GNSS Receiver:\n");
+    printf("  GNSS Input:      %s\n", current_config.gnss_enabled ? "Enabled" : "Disabled");
+    printf("\n");
+
+    printf("Pulse Outputs:\n");
+    bool any_pulse = false;
+    for (int i = 0; i < CONFIG_MAX_PULSE_OUTPUTS; i++) {
+        if (current_config.pulse_configs[i].active) {
+            any_pulse = true;
+            printf("  [%d] GPIO %d: mode %d\n", i,
+                   current_config.pulse_configs[i].gpio_pin,
+                   current_config.pulse_configs[i].mode);
+        }
+    }
+    if (!any_pulse) {
+        printf("  (none configured)\n");
+    }
     printf("\n");
 
     printf("Config Info:\n");
@@ -293,4 +317,28 @@ void config_print(void) {
            current_config.magic == CONFIG_MAGIC ? "(valid)" : "(INVALID)");
     printf("  Version:        %lu\n", current_config.version);
     printf("\n");
+}
+
+/**
+ * Get pulse configuration array
+ */
+pulse_config_stored_t* config_get_pulse_configs(void) {
+    return current_config.pulse_configs;
+}
+
+/**
+ * Update pulse configuration at given index
+ */
+void config_set_pulse_config(int index, const pulse_config_stored_t *cfg) {
+    if (index < 0 || index >= CONFIG_MAX_PULSE_OUTPUTS || !cfg) {
+        return;
+    }
+    memcpy(&current_config.pulse_configs[index], cfg, sizeof(pulse_config_stored_t));
+}
+
+/**
+ * Clear all pulse configurations
+ */
+void config_clear_pulse_configs(void) {
+    memset(current_config.pulse_configs, 0, sizeof(current_config.pulse_configs));
 }

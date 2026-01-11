@@ -123,11 +123,11 @@ static void freq_counter_irq_handler(void) {
 void freq_counter_init(void) {
     printf("[FREQ] Initializing hardware frequency counter\n");
     printf("[FREQ] 10MHz input: GPIO %d, Rb PPS: GPIO %d, GPS PPS: GPIO %d\n",
-           GPIO_10MHZ_INPUT, GPIO_PPS_INPUT, GPIO_GPS_PPS_INPUT);
+           GPIO_10MHZ_INPUT, GPIO_PPS_INPUT, GPIO_GNSS_PPS_INPUT);
 
     /* Ensure GPS PPS pin is configured as input (needed before gps_input_init) */
-    gpio_init(GPIO_GPS_PPS_INPUT);
-    gpio_set_dir(GPIO_GPS_PPS_INPUT, GPIO_IN);
+    gpio_init(GPIO_GNSS_PPS_INPUT);
+    gpio_set_dir(GPIO_GNSS_PPS_INPUT, GPIO_IN);
 
     /* Add PIO programs */
     uint offset = pio_add_program(freq_pio, &freq_counter_program);
@@ -147,7 +147,7 @@ void freq_counter_init(void) {
 
     /* Initialize GPS PPS capture (SM2) - captures 10MHz count at GPS PPS edge */
     pps_capture_program_init(freq_pio, gps_pps_sm, pps_capture_offset,
-                              GPIO_10MHZ_INPUT, GPIO_GPS_PPS_INPUT);
+                              GPIO_10MHZ_INPUT, GPIO_GNSS_PPS_INPUT);
     pio_sm_set_enabled(freq_pio, gps_pps_sm, true);
 
     /* Initialize FE PPS capture (SM1) AFTER SM0 is running
@@ -366,11 +366,11 @@ void freq_counter_pps_task(void) {
 }
 
 /**
- * Legacy: Capture GPS PPS from IRQ handler
+ * Legacy: Capture GNSS PPS from IRQ handler
  * Now a no-op - PIO handles capture automatically
  */
-void freq_counter_capture_gps_pps(void) {
-    /* No-op: PIO SM2 captures automatically at GPS PPS edge */
+void freq_counter_capture_gnss_pps(void) {
+    /* No-op: PIO SM2 captures automatically at GNSS PPS edge */
 }
 
 /**
@@ -413,7 +413,7 @@ uint32_t freq_counter_get_fe_pps_count(void) {
     return fe_pps_debug_count;
 }
 
-uint32_t freq_counter_get_gps_pps_count(void) {
+uint32_t freq_counter_get_gnss_pps_count(void) {
     return gps_pps_debug_count;
 }
 
@@ -424,6 +424,6 @@ bool freq_counter_fe_pps_valid(void) {
     return fe_pps_capture_valid;
 }
 
-bool freq_counter_gps_pps_valid(void) {
+bool freq_counter_gnss_pps_valid(void) {
     return gps_pps_capture_valid;
 }
