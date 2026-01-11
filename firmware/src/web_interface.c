@@ -621,8 +621,8 @@ static int generate_pulse_outputs_html(char *buf, size_t len) {
         char config[64];
         switch (p->mode) {
             case PULSE_MODE_INTERVAL:
-                snprintf(config, sizeof(config), "every %lus, %ums",
-                    (unsigned long)p->interval, p->pulse_width_ms);
+                snprintf(config, sizeof(config), "every %u.%us, %ums",
+                    p->interval_ds / 10, p->interval_ds % 10, p->pulse_width_ms);
                 break;
             case PULSE_MODE_SECOND:
                 snprintf(config, sizeof(config), "sec %d, %ums x%d",
@@ -811,11 +811,11 @@ static int generate_pulse_outputs_json(char *buf, size_t len) {
         first = false;
 
         pos += snprintf(buf + pos, len - pos,
-            "{\"pin\":%d,\"mode\":\"%s\",\"interval\":%lu,"
+            "{\"pin\":%d,\"mode\":\"%s\",\"interval\":%u.%u,"
             "\"second\":%d,\"minute\":%d,\"hour\":%d,"
             "\"width_ms\":%d,\"count\":%d,\"gap_ms\":%d}",
             p->gpio_pin, mode_names[p->mode],
-            (unsigned long)p->interval,
+            p->interval_ds / 10, p->interval_ds % 10,
             p->trigger_second, p->trigger_minute, p->trigger_hour,
             p->pulse_width_ms, p->pulse_count, p->pulse_gap_ms);
     }
@@ -980,8 +980,8 @@ static int generate_pulse_config_html(char *buf, size_t len) {
             char config[64];
             switch (p->mode) {
                 case PULSE_MODE_INTERVAL:
-                    snprintf(config, sizeof(config), "every %lus, %ums",
-                        (unsigned long)p->interval, p->pulse_width_ms);
+                    snprintf(config, sizeof(config), "every %u.%us, %ums",
+                        p->interval_ds / 10, p->interval_ds % 10, p->pulse_width_ms);
                     break;
                 case PULSE_MODE_SECOND:
                     snprintf(config, sizeof(config), "sec %d, %ums x%d",

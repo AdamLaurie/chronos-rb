@@ -171,7 +171,7 @@ static void cmd_help(void) {
     cli_printf("  wifi <SSID> <PWD>   - Connect to WiFi (quote SSID if spaces)\n");
     cli_printf("\n");
     cli_printf("Pulse Output Commands:\n");
-    cli_printf("  pulse <pin> P <interval_sec> <width_ms>\n");
+    cli_printf("  pulse <pin> P <interval> <width_ms>  (interval in sec, e.g. 0.5, 1, 10)\n");
     cli_printf("                      - Pulse every N seconds\n");
     cli_printf("  pulse <pin> S <second> <width_ms> <count> <gap_ms>\n");
     cli_printf("                      - Burst on specific second (0-59) each minute\n");
@@ -460,7 +460,7 @@ static void cmd_pulse(int argc, char **argv) {
             cli_printf("  [%d] GPIO %2d: ", i, cfg->gpio_pin);
             switch (cfg->mode) {
                 case PULSE_MODE_INTERVAL:
-                    cli_printf("every %lu sec", (unsigned long)cfg->interval);
+                    cli_printf("every %u.%u sec", cfg->interval_ds / 10, cfg->interval_ds % 10);
                     break;
                 case PULSE_MODE_SECOND:
                     cli_printf("on second %u", cfg->trigger_second);
@@ -520,14 +520,32 @@ static void cmd_pulse(int argc, char **argv) {
     switch (mode) {
         case 'P': {
             /* Interval mode: pulse <pin> P <interval> <width> */
+            /* Interval can be decimal like 0.5, 1.5, etc. */
             if (argc < 5) {
-                cli_printf("Usage: pulse <pin> P <interval_sec> <width_ms>\n");
+                cli_printf("Usage: pulse <pin> P <interval> <width_ms>\n");
+                cli_printf("  interval in seconds (e.g. 0.5, 1, 10)\n");
                 return;
             }
-            uint32_t interval = (uint32_t)atoi(argv[3]);
+            /* Parse interval as decimal, convert to deciseconds */
+            uint16_t interval_ds = 0;
+            const char *interval_str = argv[3];
+            const char *dot = strchr(interval_str, '.');
+            if (dot) {
+                /* Has decimal point: parse whole and fractional parts */
+                int whole = atoi(interval_str);
+                int frac = 0;
+                if (dot[1] >= '0' && dot[1] <= '9') {
+                    frac = dot[1] - '0';  /* First decimal digit */
+                }
+                interval_ds = (uint16_t)(whole * 10 + frac);
+            } else {
+                /* No decimal: whole seconds */
+                interval_ds = (uint16_t)(atoi(interval_str) * 10);
+            }
             uint16_t width = (uint16_t)atoi(argv[4]);
-            if (pulse_output_set_interval((uint8_t)pin, interval, width) >= 0) {
-                cli_printf("GPIO %d: interval %lu sec, width %u ms\n", pin, (unsigned long)interval, width);
+            if (pulse_output_set_interval((uint8_t)pin, interval_ds, width) >= 0) {
+                cli_printf("GPIO %d: interval %u.%u sec, width %u ms\n",
+                           pin, interval_ds / 10, interval_ds % 10, width);
             } else {
                 cli_printf("Error: Failed to configure pulse output\n");
             }

@@ -51,7 +51,7 @@ typedef enum {
 typedef struct {
     uint8_t gpio_pin;           /* GPIO pin number */
     pulse_mode_t mode;          /* Trigger mode */
-    uint32_t interval;          /* Interval in seconds (for INTERVAL mode) */
+    uint16_t interval_ds;       /* Interval in deciseconds (0.1s units) for INTERVAL mode */
     uint8_t trigger_second;     /* Second to trigger (0-59) */
     uint8_t trigger_minute;     /* Minute to trigger (0-59) */
     uint8_t trigger_hour;       /* Hour to trigger (0-23) for TIME mode */
@@ -62,6 +62,7 @@ typedef struct {
 
     /* Runtime state for burst generation */
     uint32_t last_trigger_pps;  /* PPS count at last trigger */
+    uint8_t last_trigger_ds;    /* Decisecond (0-9) within second at last trigger */
     uint32_t pulse_off_time;    /* Time to turn off current pulse (0 = off) */
     uint32_t next_pulse_time;   /* Time to start next pulse in burst (0 = none) */
     uint16_t burst_remaining;   /* Pulses remaining in current burst */
@@ -79,8 +80,9 @@ void pulse_output_init(void);
 void pulse_output_task(void);
 
 /* Configure interval-based pulse
+ * interval_ds: interval in deciseconds (0.1s units), e.g., 5 = 0.5s, 10 = 1.0s
  * Returns slot index (0-7) on success, -1 on failure */
-int pulse_output_set_interval(uint8_t gpio_pin, uint32_t interval_sec,
+int pulse_output_set_interval(uint8_t gpio_pin, uint16_t interval_ds,
                               uint16_t pulse_width_ms);
 
 /* Configure second-triggered pulse (fires on specific second each minute)

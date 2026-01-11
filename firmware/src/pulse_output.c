@@ -40,8 +40,7 @@ static void config_to_stored(const pulse_config_t *src, pulse_config_stored_t *d
     dst->pulse_width_ms = src->pulse_width_ms;
     dst->pulse_count = src->pulse_count;
     dst->pulse_gap_ms = src->pulse_gap_ms;
-    /* Cap interval at uint16_t max (65535 seconds = ~18 hours) */
-    dst->interval = (src->interval > 65535) ? 65535 : (uint16_t)src->interval;
+    dst->interval_ds = src->interval_ds;
 }
 
 /**
@@ -58,7 +57,7 @@ static void stored_to_config(const pulse_config_stored_t *src, pulse_config_t *d
     dst->pulse_width_ms = src->pulse_width_ms;
     dst->pulse_count = src->pulse_count;
     dst->pulse_gap_ms = src->pulse_gap_ms;
-    dst->interval = src->interval;
+    dst->interval_ds = src->interval_ds;
 }
 
 /**
@@ -234,15 +233,30 @@ void pulse_output_task(void) {
         }
 
         switch (cfg->mode) {
-            case PULSE_MODE_INTERVAL:
-                /* Fire every N seconds based on PPS count */
-                if (pps_count > 0 && pps_count != cfg->last_trigger_pps) {
-                    if ((pps_count % cfg->interval) == 0) {
+            case PULSE_MODE_INTERVAL: {
+                /* Fire every N deciseconds (0.1s) using PPS + 10MHz offset */
+                uint64_t last_pps = get_last_pps_timestamp();
+                if (last_pps == 0 || pps_count == 0) break;
+
+                /* Calculate current decisecond within second (0-9) */
+                uint32_t us_since_pps = (uint32_t)((now > last_pps) ? (now - last_pps) : 0);
+                if (us_since_pps > 1000000) us_since_pps = 0;  /* Stale PPS */
+                uint8_t cur_ds = us_since_pps / 100000;  /* 0-9 */
+
+                /* Total deciseconds = pps_count * 10 + cur_ds */
+                uint32_t total_ds = pps_count * 10 + cur_ds;
+
+                /* Check if we should trigger */
+                if ((total_ds % cfg->interval_ds) == 0) {
+                    /* Avoid double-trigger in same decisecond */
+                    if (pps_count != cfg->last_trigger_pps || cur_ds != cfg->last_trigger_ds) {
                         start_burst(cfg);
                         cfg->last_trigger_pps = pps_count;
+                        cfg->last_trigger_ds = cur_ds;
                     }
                 }
                 break;
+            }
 
             case PULSE_MODE_SECOND:
                 /* Fire on specific second each minute */
@@ -290,10 +304,11 @@ void pulse_output_task(void) {
 
 /**
  * Configure interval-based pulse
+ * interval_ds: interval in deciseconds (0.1s units)
  */
-int pulse_output_set_interval(uint8_t gpio_pin, uint32_t interval_sec,
+int pulse_output_set_interval(uint8_t gpio_pin, uint16_t interval_ds,
                               uint16_t pulse_width_ms) {
-    if (interval_sec == 0) {
+    if (interval_ds == 0) {
         printf("Error: Interval must be > 0\n");
         return -1;
     }
@@ -314,14 +329,14 @@ int pulse_output_set_interval(uint8_t gpio_pin, uint32_t interval_sec,
 
     cfg->gpio_pin = gpio_pin;
     cfg->mode = PULSE_MODE_INTERVAL;
-    cfg->interval = interval_sec;
+    cfg->interval_ds = interval_ds;
     cfg->pulse_width_ms = pulse_width_ms;
     cfg->pulse_count = 1;    /* Single pulse for interval mode */
     cfg->pulse_gap_ms = 0;
     cfg->active = true;
 
-    printf("[PULSE] GPIO %d: interval %lu sec, width %u ms\n",
-           gpio_pin, interval_sec, pulse_width_ms);
+    printf("[PULSE] GPIO %d: interval %u.%u sec, width %u ms\n",
+           gpio_pin, interval_ds / 10, interval_ds % 10, pulse_width_ms);
 
     /* Save to persistent storage */
     save_pulse_config(slot);
@@ -511,7 +526,7 @@ void pulse_output_list(void) {
 
         switch (cfg->mode) {
             case PULSE_MODE_INTERVAL:
-                printf("every %lu sec", cfg->interval);
+                printf("every %u.%u sec", cfg->interval_ds / 10, cfg->interval_ds % 10);
                 break;
             case PULSE_MODE_SECOND:
                 printf("on second %u", cfg->trigger_second);

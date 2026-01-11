@@ -37,7 +37,7 @@ typedef struct __attribute__((packed)) {
     uint16_t pulse_width_ms;    /* Pulse width in milliseconds */
     uint16_t pulse_count;       /* Number of pulses in burst */
     uint16_t pulse_gap_ms;      /* Gap between pulses in burst (ms) */
-    uint16_t interval;          /* Interval in seconds (max 65535 = ~18 hours) */
+    uint16_t interval_ds;       /* Interval in deciseconds (0.1s units, max 6553.5s) */
 } pulse_config_stored_t;        /* 14 bytes per config */
 
 typedef struct {
