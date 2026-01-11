@@ -86,27 +86,8 @@ void gpio_init_all(void) {
     gpio_put(GPIO_DEBUG_PPS_OUT, 0);
 
     /* Note: GPIO_GPS_PPS_INPUT (GP11) is initialized by gps_input_init() */
-    
-    /* Initialize interval pulse outputs */
-    gpio_init(GPIO_PULSE_500MS);
-    gpio_set_dir(GPIO_PULSE_500MS, GPIO_OUT);
-    gpio_put(GPIO_PULSE_500MS, 0);
-    
-    gpio_init(GPIO_PULSE_1S);
-    gpio_set_dir(GPIO_PULSE_1S, GPIO_OUT);
-    gpio_put(GPIO_PULSE_1S, 0);
-    
-    gpio_init(GPIO_PULSE_6S);
-    gpio_set_dir(GPIO_PULSE_6S, GPIO_OUT);
-    gpio_put(GPIO_PULSE_6S, 0);
-    
-    gpio_init(GPIO_PULSE_30S);
-    gpio_set_dir(GPIO_PULSE_30S, GPIO_OUT);
-    gpio_put(GPIO_PULSE_30S, 0);
-    
-    gpio_init(GPIO_PULSE_60S);
-    gpio_set_dir(GPIO_PULSE_60S, GPIO_OUT);
-    gpio_put(GPIO_PULSE_60S, 0);
+
+    /* Note: Pulse outputs (GP14-GP18) are now managed by pulse_output module */
 }
 
 /**
@@ -150,95 +131,6 @@ void led_set_error(bool on) {
 }
 
 static uint32_t activity_off_time = 0;
-
-/*============================================================================
- * INTERVAL PULSE GENERATION
- *============================================================================*/
-
-/* Pulse state tracking */
-static struct {
-    uint32_t pulse_off_time_500ms;
-    uint32_t pulse_off_time_1s;
-    uint32_t pulse_off_time_6s;
-    uint32_t pulse_off_time_30s;
-    uint32_t pulse_off_time_60s;
-    uint32_t last_pps_count;
-    uint32_t half_second_toggle;
-} pulse_state = {0};
-
-/**
- * Generate interval pulses synchronized to PPS
- * Called from main loop, generates pulses at 0.5s, 1s, 6s, 30s, and 60s intervals
- */
-static void update_interval_pulses(void) {
-    uint32_t now = time_us_32();
-    uint32_t pps_count = g_time_state.pps_count;
-    
-    /* Check for new PPS edge (1-second boundary) */
-    if (pps_count != pulse_state.last_pps_count) {
-        pulse_state.last_pps_count = pps_count;
-        pulse_state.half_second_toggle = 0;
-        
-        /* 1-second pulse - every PPS */
-        gpio_put(GPIO_PULSE_1S, 1);
-        pulse_state.pulse_off_time_1s = now + (PULSE_WIDTH_MS * 1000);
-        
-        /* 6-second pulse */
-        if ((pps_count % 6) == 0) {
-            gpio_put(GPIO_PULSE_6S, 1);
-            pulse_state.pulse_off_time_6s = now + (PULSE_WIDTH_MS * 1000);
-        }
-        
-        /* 30-second pulse */
-        if ((pps_count % 30) == 0) {
-            gpio_put(GPIO_PULSE_30S, 1);
-            pulse_state.pulse_off_time_30s = now + (PULSE_WIDTH_MS * 1000);
-        }
-        
-        /* 60-second pulse (1 minute) */
-        if ((pps_count % 60) == 0) {
-            gpio_put(GPIO_PULSE_60S, 1);
-            pulse_state.pulse_off_time_60s = now + (PULSE_WIDTH_MS * 1000);
-        }
-        
-        /* 0.5-second pulse on PPS edge */
-        gpio_put(GPIO_PULSE_500MS, 1);
-        pulse_state.pulse_off_time_500ms = now + (PULSE_WIDTH_MS * 1000);
-    }
-    
-    /* Generate 0.5-second pulse at mid-point between PPS edges */
-    if (!pulse_state.half_second_toggle) {
-        /* Check if 500ms has elapsed since last PPS */
-        uint64_t last_pps_time = get_last_pps_timestamp();
-        if (last_pps_time > 0 && (now - (uint32_t)last_pps_time) >= 500000) {
-            pulse_state.half_second_toggle = 1;
-            gpio_put(GPIO_PULSE_500MS, 1);
-            pulse_state.pulse_off_time_500ms = now + (PULSE_WIDTH_MS * 1000);
-        }
-    }
-    
-    /* Turn off pulses after pulse width expires */
-    if (pulse_state.pulse_off_time_500ms && now >= pulse_state.pulse_off_time_500ms) {
-        gpio_put(GPIO_PULSE_500MS, 0);
-        pulse_state.pulse_off_time_500ms = 0;
-    }
-    if (pulse_state.pulse_off_time_1s && now >= pulse_state.pulse_off_time_1s) {
-        gpio_put(GPIO_PULSE_1S, 0);
-        pulse_state.pulse_off_time_1s = 0;
-    }
-    if (pulse_state.pulse_off_time_6s && now >= pulse_state.pulse_off_time_6s) {
-        gpio_put(GPIO_PULSE_6S, 0);
-        pulse_state.pulse_off_time_6s = 0;
-    }
-    if (pulse_state.pulse_off_time_30s && now >= pulse_state.pulse_off_time_30s) {
-        gpio_put(GPIO_PULSE_30S, 0);
-        pulse_state.pulse_off_time_30s = 0;
-    }
-    if (pulse_state.pulse_off_time_60s && now >= pulse_state.pulse_off_time_60s) {
-        gpio_put(GPIO_PULSE_60S, 0);
-        pulse_state.pulse_off_time_60s = 0;
-    }
-}
 
 void led_blink_activity(void) {
     gpio_put(GPIO_LED_ACTIVITY, 1);
@@ -348,19 +240,19 @@ void chronos_init(void) {
     printf("[INIT] Initializing radio timecode outputs...\n");
     radio_timecode_init();
 
-    /* GPS input must be initialized BEFORE AC frequency monitor because
+    /* GNSS input must be initialized BEFORE AC frequency monitor because
      * gps_input_init() registers the shared GPIO callback that handles
-     * both GPS PPS (GP11) and AC zero crossing (GP19) interrupts */
-    printf("[INIT] Initializing GPS receiver input...\n");
+     * both GNSS PPS (GP11) and AC zero crossing (GP19) interrupts */
+    printf("[INIT] Initializing GNSS receiver input...\n");
     gps_input_init();
 
     printf("[INIT] Initializing AC frequency monitor...\n");
     ac_freq_init();
 
-    /* Apply RF, NMEA, and GPS settings from config */
+    /* Apply RF, NMEA, and GNSS settings from config */
     {
         config_t *cfg = config_get();
-        printf("[INIT] Applying RF/NMEA/GPS settings from config...\n");
+        printf("[INIT] Applying RF/NMEA/GNSS settings from config...\n");
         radio_timecode_enable(RADIO_DCF77, cfg->rf_dcf77_enabled);
         radio_timecode_enable(RADIO_WWVB, cfg->rf_wwvb_enabled);
         radio_timecode_enable(RADIO_JJY40, cfg->rf_jjy40_enabled);
@@ -372,7 +264,7 @@ void chronos_init(void) {
                cfg->rf_wwvb_enabled ? "ON" : "OFF",
                cfg->rf_jjy40_enabled ? "ON" : "OFF",
                cfg->rf_jjy60_enabled ? "ON" : "OFF");
-        printf("[INIT]   NMEA: %s, GPS: %s\n",
+        printf("[INIT]   NMEA: %s, GNSS: %s\n",
                cfg->nmea_enabled ? "ON" : "OFF",
                cfg->gps_enabled ? "ON" : "OFF");
     }
@@ -598,9 +490,6 @@ int main(void) {
         /* Update status LEDs */
         update_status_leds();
         
-        /* Generate interval pulses */
-        update_interval_pulses();
-
         /* Process configurable pulse outputs */
         pulse_output_task();
 

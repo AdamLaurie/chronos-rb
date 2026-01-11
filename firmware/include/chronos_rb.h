@@ -19,8 +19,8 @@
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
 #define CHRONOS_VERSION_MINOR   4
-#define CHRONOS_VERSION_PATCH   60
-#define CHRONOS_VERSION_STRING  "1.4.60"
+#define CHRONOS_VERSION_PATCH   63
+#define CHRONOS_VERSION_STRING  "1.4.63"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
@@ -110,9 +110,9 @@
 #define DISCIPLINE_GAIN_P       0.7             /* Proportional gain */
 #define DISCIPLINE_GAIN_I       0.3             /* Integral gain */
 
-/* GPS receiver parameters */
-#define GPS_UART_BAUD           9600            /* NEO-M8N default baud rate */
-#define GPS_PPS_TIMEOUT_MS      2000            /* GPS PPS timeout (2 seconds) */
+/* GNSS receiver parameters */
+#define GPS_UART_BAUD           115200          /* GNSS module baud rate */
+#define GPS_PPS_TIMEOUT_MS      2000            /* GNSS PPS timeout (2 seconds) */
 #define GPS_NMEA_TIMEOUT_MS     5000            /* NMEA sentence timeout */
 #define GPS_MIN_SATS            4               /* Minimum satellites for valid fix */
 

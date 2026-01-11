@@ -201,13 +201,13 @@ static void cmd_help(void) {
     cli_printf("  nmea                      - Show NMEA status\n");
     cli_printf("  nmea <on|off>             - Enable/disable NMEA output\n");
     cli_printf("\n");
-    cli_printf("GPS Receiver:\n");
-    cli_printf("  gps                       - Show GPS status\n");
-    cli_printf("  gps <on|off>              - Enable/disable GPS input\n");
+    cli_printf("GNSS Receiver:\n");
+    cli_printf("  gps                       - Show GNSS status\n");
+    cli_printf("  gps <on|off>              - Enable/disable GNSS input\n");
     cli_printf("  gps debug <on|off>        - Show incoming NMEA timestamps\n");
     cli_printf("\n");
     cli_printf("Time Sync:\n");
-    cli_printf("  sync                      - Force time resync from GPS\n");
+    cli_printf("  sync                      - Force time resync from GNSS\n");
     cli_printf("  watch                     - Live time display (serial only)\n");
     cli_printf("\n");
 }
@@ -300,9 +300,9 @@ static void cmd_pins(void) {
     cli_printf("  GP%-2d  Debug PPS Out      Regenerated 1PPS for test\n", GPIO_DEBUG_PPS_OUT);
     cli_printf("\n");
 
-    cli_printf("GPS Receiver:\n");
-    cli_printf("  GP%-2d  GPS PPS Input      1PPS from GPS (backup)\n", GPIO_GPS_PPS_INPUT);
-    cli_printf("  GP%-2d  GPS RX (UART1)     NMEA from GPS module\n", GPIO_GPS_RX);
+    cli_printf("GNSS Receiver:\n");
+    cli_printf("  GP%-2d  GNSS PPS Input     1PPS from GNSS (backup)\n", GPIO_GPS_PPS_INPUT);
+    cli_printf("  GP%-2d  GNSS RX (UART1)    NMEA from GNSS module\n", GPIO_GPS_RX);
     cli_printf("\n");
 
     cli_printf("Outputs - Fixed Interval Pulses:\n");
@@ -451,12 +451,44 @@ static void cmd_pulse(int argc, char **argv) {
 
     /* Handle list and clear */
     if (strcmp(argv[1], "list") == 0) {
-        pulse_output_list();
+        cli_printf("\nConfigured pulse outputs:\n");
+        bool any_active = false;
+        for (int i = 0; i < MAX_PULSE_OUTPUTS; i++) {
+            pulse_config_t *cfg = pulse_output_get(i);
+            if (!cfg || !cfg->active) continue;
+            any_active = true;
+            cli_printf("  [%d] GPIO %2d: ", i, cfg->gpio_pin);
+            switch (cfg->mode) {
+                case PULSE_MODE_INTERVAL:
+                    cli_printf("every %lu sec", (unsigned long)cfg->interval);
+                    break;
+                case PULSE_MODE_SECOND:
+                    cli_printf("on second %u", cfg->trigger_second);
+                    break;
+                case PULSE_MODE_MINUTE:
+                    cli_printf("on minute %u", cfg->trigger_minute);
+                    break;
+                case PULSE_MODE_TIME:
+                    cli_printf("at %02u:%02u", cfg->trigger_hour, cfg->trigger_minute);
+                    break;
+                default:
+                    cli_printf("???");
+            }
+            cli_printf(", %u ms", cfg->pulse_width_ms);
+            if (cfg->pulse_count > 1) {
+                cli_printf(" x%u (gap %u ms)", cfg->pulse_count, cfg->pulse_gap_ms);
+            }
+            cli_printf("\n");
+        }
+        if (!any_active) {
+            cli_printf("  (none)\n");
+        }
         return;
     }
 
     if (strcmp(argv[1], "clear") == 0) {
         pulse_output_clear_all();
+        cli_printf("All pulse outputs cleared\n");
         return;
     }
 
@@ -474,7 +506,11 @@ static void cmd_pulse(int argc, char **argv) {
 
     /* Handle off */
     if (strcasecmp(argv[2], "off") == 0) {
-        pulse_output_disable((uint8_t)pin);
+        if (pulse_output_disable((uint8_t)pin)) {
+            cli_printf("GPIO %d: disabled\n", pin);
+        } else {
+            cli_printf("Error: No pulse configured on GPIO %d\n", pin);
+        }
         return;
     }
 
@@ -490,7 +526,11 @@ static void cmd_pulse(int argc, char **argv) {
             }
             uint32_t interval = (uint32_t)atoi(argv[3]);
             uint16_t width = (uint16_t)atoi(argv[4]);
-            pulse_output_set_interval((uint8_t)pin, interval, width);
+            if (pulse_output_set_interval((uint8_t)pin, interval, width) >= 0) {
+                cli_printf("GPIO %d: interval %lu sec, width %u ms\n", pin, (unsigned long)interval, width);
+            } else {
+                cli_printf("Error: Failed to configure pulse output\n");
+            }
             break;
         }
 
@@ -504,7 +544,11 @@ static void cmd_pulse(int argc, char **argv) {
             uint16_t width = (uint16_t)atoi(argv[4]);
             uint16_t count = (uint16_t)atoi(argv[5]);
             uint16_t gap = (uint16_t)atoi(argv[6]);
-            pulse_output_set_second((uint8_t)pin, second, width, count, gap);
+            if (pulse_output_set_second((uint8_t)pin, second, width, count, gap) >= 0) {
+                cli_printf("GPIO %d: on second %u, %u ms x%u (gap %u ms)\n", pin, second, width, count, gap);
+            } else {
+                cli_printf("Error: Failed to configure pulse output\n");
+            }
             break;
         }
 
@@ -518,7 +562,11 @@ static void cmd_pulse(int argc, char **argv) {
             uint16_t width = (uint16_t)atoi(argv[4]);
             uint16_t count = (uint16_t)atoi(argv[5]);
             uint16_t gap = (uint16_t)atoi(argv[6]);
-            pulse_output_set_minute((uint8_t)pin, minute, width, count, gap);
+            if (pulse_output_set_minute((uint8_t)pin, minute, width, count, gap) >= 0) {
+                cli_printf("GPIO %d: on minute %u, %u ms x%u (gap %u ms)\n", pin, minute, width, count, gap);
+            } else {
+                cli_printf("Error: Failed to configure pulse output\n");
+            }
             break;
         }
 
@@ -536,7 +584,11 @@ static void cmd_pulse(int argc, char **argv) {
             uint16_t width = (uint16_t)atoi(argv[4]);
             uint16_t count = (uint16_t)atoi(argv[5]);
             uint16_t gap = (uint16_t)atoi(argv[6]);
-            pulse_output_set_time((uint8_t)pin, hour, minute, width, count, gap);
+            if (pulse_output_set_time((uint8_t)pin, hour, minute, width, count, gap) >= 0) {
+                cli_printf("GPIO %d: at %02u:%02u, %u ms x%u (gap %u ms)\n", pin, hour, minute, width, count, gap);
+            } else {
+                cli_printf("Error: Failed to configure pulse output\n");
+            }
             break;
         }
 
@@ -631,16 +683,16 @@ static void cmd_nmea(int argc, char **argv) {
 }
 
 /**
- * Force time resync from GPS
+ * Force time resync from GNSS
  */
 static void cmd_sync(void) {
     if (!gps_has_time()) {
-        cli_printf("Error: GPS does not have valid time\n");
-        cli_printf("Wait for GPS fix before syncing\n");
+        cli_printf("Error: GNSS does not have valid time\n");
+        cli_printf("Wait for GNSS fix before syncing\n");
         return;
     }
 
-    cli_printf("Forcing time resync from GPS...\n");
+    cli_printf("Forcing time resync from GNSS...\n");
     force_time_resync();
 
     /* Wait a moment for the sync to happen */
@@ -649,9 +701,9 @@ static void cmd_sync(void) {
     if (gps_has_time()) {
         gps_time_t t;
         gps_get_utc_time(&t);
-        cli_printf("GPS time: %04d-%02d-%02d %02d:%02d:%02d UTC\n",
+        cli_printf("GNSS time: %04d-%02d-%02d %02d:%02d:%02d UTC\n",
                    t.year, t.month, t.day, t.hour, t.minute, t.second);
-        cli_printf("Time will be set on next GPS update\n");
+        cli_printf("Time will be set on next GNSS update\n");
     }
 }
 
@@ -660,7 +712,7 @@ static void cmd_sync(void) {
  */
 static void cmd_time_watch(void) {
     printf("Live time display (30 seconds):\n");
-    printf("DEVICE     | GPS      | UNIX_TS\n");
+    printf("DEVICE     | GNSS     | UNIX_TS\n");
 
     uint32_t last_sec = 0;
     int count = 0;
@@ -702,7 +754,7 @@ static void cmd_time_watch(void) {
 }
 
 /**
- * GPS receiver control
+ * GNSS receiver control
  */
 static void cmd_gps(int argc, char **argv) {
     config_t *cfg = config_get();
@@ -714,7 +766,7 @@ static void cmd_gps(int argc, char **argv) {
         else if (fix == GPS_FIX_3D) fix_str = "3D";
 
         cli_printf("\n");
-        cli_printf("GPS Receiver Status:\n");
+        cli_printf("GNSS Receiver Status:\n");
         cli_printf("  Enabled:        %s\n", gps_is_enabled() ? "YES" : "NO");
         cli_printf("  Firmware:       %s\n", gps_get_firmware_version());
         cli_printf("  Hardware:       %s\n", gps_get_hardware_version());
@@ -756,7 +808,7 @@ static void cmd_gps(int argc, char **argv) {
     bool enable = (strcmp(argv[1], "on") == 0 || strcmp(argv[1], "1") == 0);
     gps_enable(enable);
     cfg->gps_enabled = enable;
-    cli_printf("GPS %s\n", enable ? "enabled" : "disabled");
+    cli_printf("GNSS %s\n", enable ? "enabled" : "disabled");
     cli_printf("Use 'config save' to persist settings\n");
 }
 
