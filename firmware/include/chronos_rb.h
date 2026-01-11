@@ -19,8 +19,8 @@
  *============================================================================*/
 #define CHRONOS_VERSION_MAJOR   1
 #define CHRONOS_VERSION_MINOR   4
-#define CHRONOS_VERSION_PATCH   67
-#define CHRONOS_VERSION_STRING  "1.4.67"
+#define CHRONOS_VERSION_PATCH   68
+#define CHRONOS_VERSION_STRING  "1.4.68"
 #define CHRONOS_BUILD_DATE      __DATE__
 #define CHRONOS_BUILD_TIME      __TIME__
 
@@ -264,6 +264,8 @@ void pps_capture_init(void);
 void pps_irq_handler(void);
 uint64_t get_last_pps_timestamp(void);
 bool is_pps_valid(void);
+uint64_t get_active_pps_timestamp(void);  /* Get primary (GNSS) or backup (Rb) PPS */
+bool is_active_pps_valid(void);           /* Check if any PPS source available */
 
 /* Frequency counter - hardware PPS validation */
 void freq_counter_init(void);

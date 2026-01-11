@@ -234,8 +234,9 @@ void pulse_output_task(void) {
 
         switch (cfg->mode) {
             case PULSE_MODE_INTERVAL: {
-                /* Fire every N deciseconds (0.1s) using PPS + 10MHz offset */
-                uint64_t last_pps = get_last_pps_timestamp();
+                /* Fire every N deciseconds (0.1s) using active PPS source */
+                uint64_t last_pps = get_active_pps_timestamp();
+
                 if (last_pps == 0 || pps_count == 0) break;
 
                 /* Calculate current decisecond within second (0-9) */

@@ -21,6 +21,7 @@
 
 #include "chronos_rb.h"
 #include "pps_capture.pio.h"
+#include "gnss_input.h"
 
 /*============================================================================
  * PRIVATE VARIABLES
@@ -137,13 +138,36 @@ void pps_capture_init(void) {
  *============================================================================*/
 
 /**
- * Get the timestamp of the last PPS pulse in microseconds
+ * Get the timestamp of the last Rb PPS pulse in microseconds
  */
 uint64_t get_last_pps_timestamp(void) {
     uint32_t irq = save_and_disable_interrupts();
     uint64_t ts = pps_timestamp_us;
     restore_interrupts(irq);
     return ts;
+}
+
+/**
+ * Get the active (primary) PPS timestamp
+ * Uses GNSS PPS as primary, falls back to Rb PPS
+ */
+uint64_t get_active_pps_timestamp(void) {
+    /* GNSS is primary time reference */
+    if (gnss_pps_valid()) {
+        uint64_t gnss_pps = gnss_get_last_pps_us();
+        if (gnss_pps > 0) {
+            return gnss_pps;
+        }
+    }
+    /* Fall back to Rb PPS */
+    return get_last_pps_timestamp();
+}
+
+/**
+ * Check if active PPS source is available
+ */
+bool is_active_pps_valid(void) {
+    return gnss_pps_valid() || is_pps_valid();
 }
 
 /**
