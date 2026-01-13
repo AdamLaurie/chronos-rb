@@ -813,11 +813,12 @@ static int generate_pulse_outputs_json(char *buf, size_t len) {
         pos += snprintf(buf + pos, len - pos,
             "{\"pin\":%d,\"mode\":\"%s\",\"interval\":%u.%u,"
             "\"second\":%d,\"minute\":%d,\"hour\":%d,"
-            "\"width_ms\":%d,\"count\":%d,\"gap_ms\":%d}",
+            "\"width_ms\":%d,\"count\":%d,\"gap_ms\":%d,\"pio\":%s}",
             p->gpio_pin, mode_names[p->mode],
             p->interval_ds / 10, p->interval_ds % 10,
             p->trigger_second, p->trigger_minute, p->trigger_hour,
-            p->pulse_width_ms, p->pulse_count, p->pulse_gap_ms);
+            p->pulse_width_ms, p->pulse_count, p->pulse_gap_ms,
+            p->pio_index >= 0 ? "true" : "false");
     }
 
     pos += snprintf(buf + pos, len - pos, "]");
